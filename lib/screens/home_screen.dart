@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../utils/haptics.dart';
 import '../utils/weather_codes.dart';
 import '../widgets/air_quality_card.dart';
 import '../widgets/alert_banner.dart';
@@ -216,6 +217,9 @@ class _Hero extends StatelessWidget {
     final today = s.data!.daily.first;
     final fmt = DateFormat.jm();
 
+    final raining = isRainCode(c.code);
+    final startIn = s.data!.rainStartsIn;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
@@ -223,6 +227,10 @@ class _Hero extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (raining && !hapticsSupported) ...[
+                const _RainPulse(),
+                const SizedBox(width: 8),
+              ],
               Icon(iconFor(c.code, day: c.isDay), size: 20, color: _white),
               const SizedBox(width: 8),
               Text(describe(c.code),
@@ -230,6 +238,10 @@ class _Hero extends StatelessWidget {
                       fontSize: 20, color: _white, fontWeight: FontWeight.w600)),
             ],
           ),
+          if (startIn != null) ...[
+            const SizedBox(height: 8),
+            _NowcastChip(startIn: startIn),
+          ],
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -277,6 +289,94 @@ class _Hero extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NowcastChip extends StatelessWidget {
+  final Duration startIn;
+  const _NowcastChip({required this.startIn});
+
+  String get label {
+    final m = startIn.inMinutes;
+    if (m <= 1) return 'Rain starting now';
+    if (m < 60) return 'Rain in ~$m min';
+    final h = startIn.inHours;
+    final rem = m % 60;
+    return rem == 0 ? 'Rain in ~$h hr' : 'Rain in ~${h}h ${rem}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(35),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withAlpha(60)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.water_drop, size: 14, color: _white),
+          const SizedBox(width: 6),
+          Text(label,
+              style: const TextStyle(
+                  color: _white, fontSize: 13, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Visual stand-in for haptics on platforms where the Vibration API is
+/// unavailable (notably the iOS web install): a gently pulsing droplet while
+/// it is actively raining.
+class _RainPulse extends StatefulWidget {
+  const _RainPulse();
+
+  @override
+  State<_RainPulse> createState() => _RainPulseState();
+}
+
+class _RainPulseState extends State<_RainPulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctl;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 0.85, end: 1.2).animate(
+      CurvedAnimation(parent: _ctl, curve: Curves.easeInOut),
+    );
+    _opacity = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _ctl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctl,
+      builder: (_, __) => Opacity(
+        opacity: _opacity.value,
+        child: Transform.scale(
+          scale: _scale.value,
+          child: const Icon(Icons.water_drop, size: 20, color: _white),
+        ),
       ),
     );
   }

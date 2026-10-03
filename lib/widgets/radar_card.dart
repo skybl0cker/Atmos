@@ -9,22 +9,25 @@ class RadarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final place = context.watch<AppState>().selected;
+    final s = context.watch<AppState>();
+    final place = s.selected;
     if (place == null) return const SizedBox.shrink();
+    final minutely = s.data?.minutely ?? const [];
 
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => RadarScreen(place: place)),
+        MaterialPageRoute(
+            builder: (_) => RadarScreen(place: place, minutely: minutely)),
       ),
-      child: GlassCard(
+      child: const GlassCard(
         title: 'Radar',
         icon: Icons.radar,
-        child: const Row(
+        child: Row(
           children: [
             Expanded(
               child: Text(
-                'Live NEXRAD radar with a 30-minute animated loop',
+                'Global radar loop with forecast frames and a 4-hour rain outlook',
                 style: TextStyle(color: Colors.white, fontSize: 15),
               ),
             ),

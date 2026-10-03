@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+// RainViewer "Universal Blue" scheme — approximate intensity ramp for the
+// legend (the exact tile palette is server-side).
 const radarLegendStops = [
-  (label: '5', color: Color(0xFF63C6FF)),
-  (label: '20', color: Color(0xFF00A000)),
-  (label: '35', color: Color(0xFFFFE800)),
-  (label: '50', color: Color(0xFFFF6000)),
-  (label: '65+', color: Color(0xFFC000C0)),
+  (label: 'Light', color: Color(0xFF7EC8FF)),
+  (label: 'Moderate', color: Color(0xFF3AA655)),
+  (label: 'Heavy', color: Color(0xFFFFD23F)),
+  (label: 'Intense', color: Color(0xFFE14B4B)),
 ];

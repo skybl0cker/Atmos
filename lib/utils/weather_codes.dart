@@ -69,6 +69,39 @@ IconData iconFor(int code, {bool day = true}) {
 
 bool isDayHour(DateTime t) => t.hour >= 6 && t.hour < 20;
 
+/// True when the (possibly synthesized) code is any kind of rain or drizzle.
+bool isRainCode(int code) =>
+    (code >= 51 && code <= 67) || (code >= 80 && code <= 82);
+
+/// True when the code is any kind of snow.
+bool isSnowCode(int code) =>
+    (code >= 71 && code <= 77) || code == 85 || code == 86;
+
+/// Open-Meteo's weather_code is model-synthesized and often lags reality —
+/// it happily reports "overcast" (3) while precipitation is actively falling.
+/// This blends the model code with measured precipitation (mm/hr) so the
+/// displayed condition reflects what is actually happening. Everything
+/// downstream — labels, icons, gradients, haptics — keys off this.
+int synthesizeCode(int code, double precipMmPerHour) {
+  if (precipMmPerHour <= 0) return code;
+  final dry = code >= 0 && code <= 3;
+  final drizzle = code >= 51 && code <= 57;
+  if (!dry && !drizzle) {
+    // Model already reports precipitation; only upgrade severity.
+    if (precipMmPerHour > 7.5 &&
+        (code == 61 || code == 63 || code == 80 || code == 81)) {
+      return 65;
+    }
+    return code;
+  }
+  // Measured rain but the model thinks it is dry (or just drizzle):
+  // grade by standard meteorological intensity bands.
+  if (precipMmPerHour <= 0.5) return 53; // drizzle
+  if (precipMmPerHour <= 2.5) return 61; // light rain
+  if (precipMmPerHour <= 7.5) return 63; // moderate rain
+  return 65; // heavy rain
+}
+
 List<Color> gradientFor(int code, bool day) {
   if (code >= 95) return const [Color(0xFF232526), Color(0xFF414345)];
   if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {

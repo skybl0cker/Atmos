@@ -12,7 +12,9 @@ class WeatherService {
       'current': 'temperature_2m,relative_humidity_2m,apparent_temperature,'
           'is_day,precipitation,weather_code,pressure_msl,'
           'wind_speed_10m,wind_direction_10m',
-      'hourly': 'temperature_2m,precipitation_probability,weather_code',
+      'hourly': 'temperature_2m,precipitation_probability,precipitation,weather_code',
+      'minutely_15': 'precipitation_probability,precipitation,weather_code',
+      'forecast_minutely_15': '16',
       'daily': 'weather_code,temperature_2m_max,temperature_2m_min,'
           'sunrise,sunset,uv_index_max,precipitation_probability_max',
       'timezone': 'auto',

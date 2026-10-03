@@ -1,3 +1,5 @@
+import '../utils/weather_codes.dart';
+
 class Place {
   final String name;
   final String? region;
@@ -78,12 +80,29 @@ class HourlyPoint {
   final DateTime time;
   final double tempC;
   final int precipProb;
+  final double precipMm;
   final int code;
 
   const HourlyPoint({
     required this.time,
     required this.tempC,
     required this.precipProb,
+    required this.precipMm,
+    required this.code,
+  });
+}
+
+/// 15-minute nowcast point for the next 4 hours.
+class MinutelyPoint {
+  final DateTime time;
+  final int precipProb;
+  final double precipMm;
+  final int code;
+
+  const MinutelyPoint({
+    required this.time,
+    required this.precipProb,
+    required this.precipMm,
     required this.code,
   });
 }
@@ -143,12 +162,14 @@ class AirQuality {
 class WeatherData {
   final CurrentWeather current;
   final List<HourlyPoint> hourly;
+  final List<MinutelyPoint> minutely;
   final List<DailyPoint> daily;
   final AirQuality? air;
 
   const WeatherData({
     required this.current,
     required this.hourly,
+    required this.minutely,
     required this.daily,
     this.air,
   });
@@ -156,9 +177,36 @@ class WeatherData {
   WeatherData withAir(AirQuality? a) => WeatherData(
         current: current,
         hourly: hourly,
+        minutely: minutely,
         daily: daily,
         air: a,
       );
+
+  /// Time until rain starts at the current location, or null when nothing is
+  /// expected in the next two hours. Based on the 15-minute nowcast rather
+  /// than the (often wrong) model weather code.
+  Duration? get rainStartsIn {
+    if (isRainCode(current.code) || current.precipMm > 0) return null;
+    final now = current.time;
+    for (final m in minutely) {
+      final dt = m.time.difference(now);
+      if (dt.isNegative || dt > const Duration(hours: 2)) continue;
+      if (m.precipMm > 0.2 || m.precipProb >= 60) return dt;
+    }
+    return null;
+  }
+
+  /// Expected peak precipitation rate (mm/hr) over the next two hours.
+  double get nowcastPeakMm {
+    double peak = 0;
+    final end = current.time.add(const Duration(hours: 2));
+    for (final m in minutely) {
+      if (m.time.isAfter(current.time) && !m.time.isAfter(end)) {
+        if (m.precipMm > peak) peak = m.precipMm;
+      }
+    }
+    return peak;
+  }
 
   factory WeatherData.fromJson(Map<String, dynamic> j) {
     double n(dynamic v) => (v as num?)?.toDouble() ?? 0;
@@ -168,6 +216,13 @@ class WeatherData {
     final h = j['hourly'] as Map<String, dynamic>;
     final d = j['daily'] as Map<String, dynamic>;
 
+    // current.precipitation is accumulated over the current interval
+    // (usually 15 minutes), so convert it to an hourly rate for grading.
+    final intervalSec = (c['interval'] as num?)?.toDouble() ?? 3600.0;
+    final currentPrecipMm = n(c['precipitation']);
+    final currentRate = currentPrecipMm * 3600.0 / intervalSec;
+    final currentCode = synthesizeCode(i(c['weather_code']), currentRate);
+
     final current = CurrentWeather(
       time: DateTime.parse(c['time'] as String),
       tempC: n(c['temperature_2m']),
@@ -176,8 +231,8 @@ class WeatherData {
       windKmh: n(c['wind_speed_10m']),
       windDir: i(c['wind_direction_10m']),
       pressure: n(c['pressure_msl']),
-      precipMm: n(c['precipitation']),
-      code: i(c['weather_code']),
+      precipMm: currentPrecipMm,
+      code: currentCode,
       isDay: i(c['is_day']) == 1,
     );
 
@@ -185,6 +240,7 @@ class WeatherData {
     final hTemp = h['temperature_2m'] as List;
     final hProb = h['precipitation_probability'] as List;
     final hCode = h['weather_code'] as List;
+    final hPrecip = (h['precipitation'] as List?) ?? [];
     final startOfHour = DateTime(current.time.year, current.time.month,
         current.time.day, current.time.hour);
 
@@ -192,12 +248,36 @@ class WeatherData {
     for (var k = 0; k < hTimes.length && hourly.length < 24; k++) {
       final t = DateTime.parse(hTimes[k]);
       if (t.isBefore(startOfHour)) continue;
+      final mm = k < hPrecip.length ? n(hPrecip[k]) : 0.0; // per-hour = mm/hr
       hourly.add(HourlyPoint(
         time: t,
         tempC: n(hTemp[k]),
         precipProb: i(hProb[k]),
-        code: i(hCode[k]),
+        precipMm: mm,
+        code: synthesizeCode(i(hCode[k]), mm),
       ));
+    }
+
+    // 15-minute nowcast (next ~2 hours). Per-interval accumulations are
+    // converted to mm/hr so thresholds match the hourly bands.
+    final minutely = <MinutelyPoint>[];
+    final m15 = j['minutely_15'] as Map<String, dynamic>?;
+    if (m15 != null) {
+      final mTimes = ((m15['time'] as List?) ?? const []).cast<String>();
+      final mProb = ((m15['precipitation_probability'] as List?) ?? const []);
+      final mPrecip = ((m15['precipitation'] as List?) ?? const []);
+      final mCode = ((m15['weather_code'] as List?) ?? const []);
+      for (var k = 0; k < mTimes.length; k++) {
+        final t = DateTime.parse(mTimes[k]);
+        if (t.isBefore(startOfHour)) continue;
+        final rate = (k < mPrecip.length ? n(mPrecip[k]) : 0.0) * 4.0;
+        minutely.add(MinutelyPoint(
+          time: t,
+          precipProb: k < mProb.length ? i(mProb[k]) : 0,
+          precipMm: rate,
+          code: synthesizeCode(k < mCode.length ? i(mCode[k]) : 3, rate),
+        ));
+      }
     }
 
     final dTimes = (d['time'] as List).cast<String>();
@@ -215,6 +295,7 @@ class WeatherData {
         ),
     ];
 
-    return WeatherData(current: current, hourly: hourly, daily: daily);
+    return WeatherData(
+        current: current, hourly: hourly, minutely: minutely, daily: daily);
   }
 }
