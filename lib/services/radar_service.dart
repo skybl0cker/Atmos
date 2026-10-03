@@ -58,7 +58,7 @@ class RadarService {
 
     final recent = past.length > 8 ? past.sublist(past.length - 8) : past;
     final anchor = DateTime.fromMillisecondsSinceEpoch(
-        recent.last['time'] as int * 1000,
+        (recent.last['time'] as int) * 1000,
         isUtc: true);
 
     final frames = <RadarFrame>[
@@ -81,7 +81,7 @@ class RadarService {
   }
 
   static String _agoLabel(DateTime anchor, Map<String, dynamic> f) {
-    final t = DateTime.fromMillisecondsSinceEpoch(f['time'] as int * 1000,
+    final t = DateTime.fromMillisecondsSinceEpoch((f['time'] as int) * 1000,
         isUtc: true);
     final m = anchor.difference(t).inMinutes;
     if (m <= 2) return 'Now';
@@ -89,7 +89,7 @@ class RadarService {
   }
 
   static String _futureLabel(DateTime anchor, Map<String, dynamic> f) {
-    final t = DateTime.fromMillisecondsSinceEpoch(f['time'] as int * 1000,
+    final t = DateTime.fromMillisecondsSinceEpoch((f['time'] as int) * 1000,
         isUtc: true);
     final m = t.difference(anchor).inMinutes;
     return '+$m min';
