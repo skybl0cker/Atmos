@@ -13,12 +13,18 @@ class RadarCard extends StatelessWidget {
     final place = s.selected;
     if (place == null) return const SizedBox.shrink();
     final minutely = s.data?.minutely ?? const [];
+    final windKmh = s.data?.steeringWindKmh ?? 0;
+    final windDir = s.data?.steeringWindDir ?? 0;
 
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (_) => RadarScreen(place: place, minutely: minutely)),
+            builder: (_) => RadarScreen(
+                place: place,
+                minutely: minutely,
+                windKmh: windKmh,
+                windDir: windDir)),
       ),
       child: const GlassCard(
         title: 'Radar',
@@ -27,7 +33,7 @@ class RadarCard extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Global radar loop with forecast frames and a 4-hour rain outlook',
+                'Live radar with +30/+60 min forecast frames and a 4-hour rain outlook',
                 style: TextStyle(color: Colors.white, fontSize: 15),
               ),
             ),

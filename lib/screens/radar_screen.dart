@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
@@ -23,7 +24,15 @@ const _noFilter = ColorFilter.mode(Colors.transparent, BlendMode.dst);
 class RadarScreen extends StatefulWidget {
   final Place place;
   final List<MinutelyPoint> minutely;
-  const RadarScreen({super.key, required this.place, this.minutely = const []});
+  final double windKmh;
+  final int windDir;
+  const RadarScreen({
+    super.key,
+    required this.place,
+    this.minutely = const [],
+    this.windKmh = 0,
+    this.windDir = 0,
+  });
 
   @override
   State<RadarScreen> createState() => _RadarScreenState();
@@ -38,19 +47,29 @@ class _RadarScreenState extends State<RadarScreen> {
   bool _playing = false;
   bool _dark = true;
   double _opacity = 0.8;
+  double _zoom = _startZoom;
   int _hold = 0;
   Timer? _timer;
+  StreamSubscription? _mapSub;
   final Set<int> _visited = {};
 
   @override
   void initState() {
     super.initState();
+    _mapSub = _map.mapEventStream.listen((_) {
+      final z = _map.camera.zoom;
+      if (z != _zoom) setState(() => _zoom = z);
+    });
     unawaited(_load());
   }
 
   Future<void> _load() async {
     try {
-      final frames = await RadarService.fetchFrames();
+      var frames = await RadarService.fetchFrames();
+      // RainViewer's own nowcast is often unavailable — fall back to
+      // wind-advected estimated frames so the future is still visible.
+      frames = RadarService.addEstimatedForecast(
+          frames, widget.windKmh, widget.windDir);
       if (!mounted) return;
       setState(() {
         _frames = frames;
@@ -91,6 +110,8 @@ class _RadarScreenState extends State<RadarScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _mapSub?.cancel();
+    _map.dispose();
     super.dispose();
   }
 
@@ -121,6 +142,21 @@ class _RadarScreenState extends State<RadarScreen> {
   }
 
   bool get _ready => _frames.isNotEmpty && _visited.length == _frames.length;
+
+  /// Screen-pixel shift for an estimated frame: advect the echo along the
+  /// 850 hPa steering wind for the frame's lead time. Open-Meteo's wind
+  /// direction follows the meteorological convention (direction the wind
+  /// comes FROM), so the motion vector points 180° away.
+  Offset _advectionOffset(RadarFrame f) {
+    if (!f.estimated || f.leadMinutes <= 0) return Offset.zero;
+    final distM = (widget.windKmh / 3.6) * f.leadMinutes * 60;
+    final toRad = ((widget.windDir + 180) % 360) * math.pi / 180;
+    final dxM = distM * math.sin(toRad); // east positive
+    final dyM = distM * math.cos(toRad); // north positive
+    final latRad = widget.place.lat * math.pi / 180;
+    final mpp = 156543.03392 * math.cos(latRad) / math.pow(2, _zoom);
+    return Offset(dxM / mpp, -dyM / mpp);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,11 +225,23 @@ class _RadarScreenState extends State<RadarScreen> {
                     AnimatedOpacity(
                       opacity: i == _index ? _opacity : 0,
                       duration: const Duration(milliseconds: 200),
-                      child: TileLayer(
-                        key: ValueKey(_frames[i].tileUrl),
-                        urlTemplate: _frames[i].tileUrl,
-                        userAgentPackageName: _userAgent,
-                      ),
+                      child: _frames[i].estimated
+                          ? Opacity(
+                              opacity: 0.55,
+                              child: Transform.translate(
+                                offset: _advectionOffset(_frames[i]),
+                                child: TileLayer(
+                                  key: ValueKey(_frames[i].key),
+                                  urlTemplate: _frames[i].tileUrl,
+                                  userAgentPackageName: _userAgent,
+                                ),
+                              ),
+                            )
+                          : TileLayer(
+                              key: ValueKey(_frames[i].key),
+                              urlTemplate: _frames[i].tileUrl,
+                              userAgentPackageName: _userAgent,
+                            ),
                     ),
                   MarkerLayer(markers: [
                     Marker(
@@ -282,8 +330,11 @@ class _RadarScreenState extends State<RadarScreen> {
                                               border: Border.all(
                                                   color: Colors.blueAccent),
                                             ),
-                                            child: const Text('FORECAST',
-                                                style: TextStyle(
+                                            child: Text(
+                                                _frames[_index].estimated
+                                                    ? 'ESTIMATED'
+                                                    : 'FORECAST',
+                                                style: const TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w700,
                                                     color: Colors.lightBlueAccent)),

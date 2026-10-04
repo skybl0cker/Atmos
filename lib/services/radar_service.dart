@@ -12,17 +12,27 @@ class RadarFrame {
   /// Display label computed at load time (stable during playback).
   final String label;
   final bool isForecast;
+
+  /// True for wind-advected synthetic frames (used when RainViewer's own
+  /// nowcast is unavailable). Rendered shifted along the steering wind.
+  final bool estimated;
+  final int leadMinutes;
   final String _path;
 
   const RadarFrame({
     required this.label,
     required this.isForecast,
     required String path,
+    this.estimated = false,
+    this.leadMinutes = 0,
   }) : _path = path;
 
   /// Universal Blue color scheme, smoothed.
   String get tileUrl =>
       'https://tilecache.rainviewer.com$_path/256/{z}/{x}/{y}/2/1_1.png';
+
+  /// Unique widget key — estimated frames share the anchor's tiles.
+  String get key => '$tileUrl|est=$estimated|lead=$leadMinutes';
 }
 
 class RadarService {
@@ -78,6 +88,29 @@ class RadarService {
     _cache = frames;
     _fetched = DateTime.now();
     return frames;
+  }
+
+  /// When RainViewer's motion-extrapolated nowcast frames are unavailable
+  /// (common), synthesize +30/+60 min frames by advecting the latest
+  /// observed echo along the 850 hPa steering wind. A crude but honest
+  /// nowcast — the frames are badged ESTIMATED in the UI.
+  static List<RadarFrame> addEstimatedForecast(
+      List<RadarFrame> frames, double windKmh, int windDir) {
+    if (frames.any((f) => f.isForecast && !f.estimated)) return frames;
+    if (windKmh < 3 || frames.isEmpty) return frames;
+    final anchor = frames.lastWhere((f) => !f.isForecast,
+        orElse: () => frames.last);
+    return [
+      ...frames,
+      for (final lead in [30, 60])
+        RadarFrame(
+          label: '+$lead min',
+          isForecast: true,
+          estimated: true,
+          leadMinutes: lead,
+          path: anchor._path,
+        ),
+    ];
   }
 
   static String _agoLabel(DateTime anchor, Map<String, dynamic> f) {

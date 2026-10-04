@@ -166,12 +166,19 @@ class WeatherData {
   final List<DailyPoint> daily;
   final AirQuality? air;
 
+  /// Steering-level wind (850 hPa, roughly cloud level) for the current hour.
+  /// Used to advect radar echoes forward for estimated forecast frames.
+  final double steeringWindKmh;
+  final int steeringWindDir;
+
   const WeatherData({
     required this.current,
     required this.hourly,
     required this.minutely,
     required this.daily,
     this.air,
+    this.steeringWindKmh = 0,
+    this.steeringWindDir = 0,
   });
 
   WeatherData withAir(AirQuality? a) => WeatherData(
@@ -180,6 +187,8 @@ class WeatherData {
         minutely: minutely,
         daily: daily,
         air: a,
+        steeringWindKmh: steeringWindKmh,
+        steeringWindDir: steeringWindDir,
       );
 
   /// Time until rain starts at the current location, or null when nothing is
@@ -241,13 +250,17 @@ class WeatherData {
     final hProb = h['precipitation_probability'] as List;
     final hCode = h['weather_code'] as List;
     final hPrecip = (h['precipitation'] as List?) ?? [];
+    final hWindSpd = (h['wind_speed_850hPa'] as List?) ?? [];
+    final hWindDir = (h['wind_direction_850hPa'] as List?) ?? [];
     final startOfHour = DateTime(current.time.year, current.time.month,
         current.time.day, current.time.hour);
 
     final hourly = <HourlyPoint>[];
+    int? firstKept;
     for (var k = 0; k < hTimes.length && hourly.length < 24; k++) {
       final t = DateTime.parse(hTimes[k]);
       if (t.isBefore(startOfHour)) continue;
+      firstKept ??= k;
       final mm = k < hPrecip.length ? n(hPrecip[k]) : 0.0; // per-hour = mm/hr
       hourly.add(HourlyPoint(
         time: t,
@@ -295,7 +308,14 @@ class WeatherData {
         ),
     ];
 
+    final k0 = firstKept ?? 0;
     return WeatherData(
-        current: current, hourly: hourly, minutely: minutely, daily: daily);
+      current: current,
+      hourly: hourly,
+      minutely: minutely,
+      daily: daily,
+      steeringWindKmh: k0 < hWindSpd.length ? n(hWindSpd[k0]) : 0,
+      steeringWindDir: k0 < hWindDir.length ? i(hWindDir[k0]) : 0,
+    );
   }
 }
