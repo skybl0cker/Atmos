@@ -71,6 +71,7 @@ class HomeScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(p.name,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 if (s.data != null)
                   Text(DateFormat.jm().format(s.data!.current.time),
@@ -526,9 +527,11 @@ class _DailyList extends StatelessWidget {
                       ),
                     ),
                     SizedBox(
-                      width: 32,
+                      width: 42,
                       child: Text(s.temp(days[i].minC),
                           textAlign: TextAlign.right,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: _white70)),
                     ),
                     const SizedBox(width: 8),
@@ -566,10 +569,12 @@ class _DailyList extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     SizedBox(
-                      width: 32,
+                      width: 42,
                       child: Text(s.temp(days[i].maxC),
-                          style:
-                              const TextStyle(color: _white, fontWeight: FontWeight.w600)),
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: _white, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -683,6 +688,8 @@ class _Tile extends StatelessWidget {
           ]),
           const Spacer(),
           Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                   fontSize: 24, color: _white, fontWeight: FontWeight.w500)),
           if (sub != null)

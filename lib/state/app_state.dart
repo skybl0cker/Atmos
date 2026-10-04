@@ -25,7 +25,7 @@ class AppState extends ChangeNotifier {
   List<WeatherAlert> alerts = [];
   bool loading = false;
   String? error;
-  bool imperial = false;
+  bool imperial = true;
   bool hapticsEnabled = true;
   bool notificationsEnabled = true;
   ThemeMode themeMode = ThemeMode.system;
@@ -34,7 +34,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
-    imperial = _prefs.getBool('imperial') ?? false;
+    imperial = _prefs.getBool('imperial') ?? true;
     hapticsEnabled = _prefs.getBool('haptics') ?? true;
     notificationsEnabled = _prefs.getBool('notifications') ?? true;
     themeMode = ThemeMode.values[_prefs.getInt('theme') ?? 0];

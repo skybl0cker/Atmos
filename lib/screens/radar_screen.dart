@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import '../models/weather.dart';
 import '../services/radar_service.dart';
+import '../state/app_state.dart';
 import '../utils/radar_legend.dart';
 
 // Change this to match your applicationId when you rename the app.
 const _userAgent = 'com.example.skycast';
 const _startZoom = 7.0;
+const _speeds = [0.5, 1.0, 2.0, 4.0];
+const _baseFrameMs = 600;
 
 /// Darkens the light OpenStreetMap basemap so radar colors stand out.
 const _darkTiles = ColorFilter.matrix(<double>[
@@ -48,6 +52,7 @@ class _RadarScreenState extends State<RadarScreen> {
   bool _dark = true;
   double _opacity = 0.8;
   double _zoom = _startZoom;
+  double _speed = 1.0;
   int _hold = 0;
   Timer? _timer;
   StreamSubscription? _mapSub;
@@ -138,8 +143,21 @@ class _RadarScreenState extends State<RadarScreen> {
       return;
     }
     setState(() => _playing = true);
-    _timer = Timer.periodic(const Duration(milliseconds: 600), (_) => _tick());
+    _timer = Timer.periodic(
+        Duration(milliseconds: (_baseFrameMs / _speed).round()), (_) => _tick());
   }
+
+  void _setSpeed(double v) {
+    setState(() => _speed = v);
+    if (_playing) {
+      _timer?.cancel();
+      _timer = Timer.periodic(
+          Duration(milliseconds: (_baseFrameMs / _speed).round()),
+          (_) => _tick());
+    }
+  }
+
+  String _speedLabel(double v) => v % 1 == 0 ? '${v.toInt()}×' : '${v}×';
 
   bool get _ready => _frames.isNotEmpty && _visited.length == _frames.length;
 
@@ -375,6 +393,36 @@ class _RadarScreenState extends State<RadarScreen> {
                                       icon: const Icon(Icons.skip_next),
                                       onPressed: () => _step(1),
                                     ),
+                                    PopupMenuButton<double>(
+                                      tooltip: 'Playback speed',
+                                      initialValue: _speed,
+                                      onSelected: _setSpeed,
+                                      itemBuilder: (_) => [
+                                        for (final sp in _speeds)
+                                          PopupMenuItem(
+                                            value: sp,
+                                            child: Text(
+                                              '${_speedLabel(sp)} speed',
+                                              style: TextStyle(
+                                                fontWeight: sp == _speed
+                                                    ? FontWeight.w700
+                                                    : FontWeight.w400,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 10),
+                                        child: Text(
+                                          _speedLabel(_speed),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                     Expanded(
                                       child: Slider(
                                         min: 0,
@@ -411,6 +459,7 @@ class _NowcastStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
     final peak =
         minutely.fold<double>(0, (m, p) => p.precipMm > m ? p.precipMm : m);
     return Card(
@@ -438,7 +487,7 @@ class _NowcastStrip extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 1),
                         child: Tooltip(
                           message:
-                              '${DateFormat('h:mm a').format(minutely[i].time)} · ${minutely[i].precipProb}% · ${minutely[i].precipMm.toStringAsFixed(1)} mm/h',
+                              '${DateFormat('h:mm a').format(minutely[i].time)} · ${minutely[i].precipProb}% · ${s.precip(minutely[i].precipMm)}/h',
                           child: Container(
                             height: peak <= 0
                                 ? 2
