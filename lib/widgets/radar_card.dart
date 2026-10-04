@@ -134,10 +134,12 @@ class _RadarPreviewState extends State<_RadarPreview> {
                           userAgentPackageName: _userAgent,
                         ),
                       ),
-                      TileLayer(
-                        urlTemplate: _frame!.tileUrl,
-                        userAgentPackageName: _userAgent,
+                      Opacity(
                         opacity: 0.85,
+                        child: TileLayer(
+                          urlTemplate: _frame!.tileUrl,
+                          userAgentPackageName: _userAgent,
+                        ),
                       ),
                       MarkerLayer(markers: [
                         Marker(
