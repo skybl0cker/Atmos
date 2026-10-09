@@ -332,13 +332,18 @@ class _RadarScreenState extends State<RadarScreen> {
                                       key: ValueKey(_frames[i].key),
                                       urlTemplate: _frames[i].tileUrl,
                                       userAgentPackageName: _userAgent,
+                                      maxNativeZoom: 7,
                                     ),
                                   ),
                                 )
                               : TileLayer(
+                                  // RainViewer tiles top out at native
+                                  // zoom 7; scale up beyond that instead of
+                                  // requesting unsupported zooms.
                                   key: ValueKey(_frames[i].key),
                                   urlTemplate: _frames[i].tileUrl,
                                   userAgentPackageName: _userAgent,
+                                  maxNativeZoom: 7,
                                 ),
                     ),
                   MarkerLayer(markers: [

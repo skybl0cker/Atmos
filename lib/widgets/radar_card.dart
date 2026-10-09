@@ -120,7 +120,9 @@ class _RadarPreviewState extends State<_RadarPreview> {
                   FlutterMap(
                     options: MapOptions(
                       initialCenter: center,
-                      initialZoom: 8,
+                      // RainViewer's tilecache tops out at native zoom 7 —
+                      // higher zooms return "Zoom Level Not Supported" tiles.
+                      initialZoom: 7,
                       interactionOptions: const InteractionOptions(
                         flags: InteractiveFlag.none,
                       ),
