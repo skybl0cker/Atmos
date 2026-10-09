@@ -15,6 +15,8 @@ jobs:
   build:
     name: Build release APK
     runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -38,13 +40,11 @@ jobs:
         run: flutter build apk --release
 
       - name: Decode upload keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/atmos-upload-key.p12
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        if: env.ANDROID_KEYSTORE_B64 != ''
+        run: echo "$ANDROID_KEYSTORE_B64" | base64 -d > /tmp/atmos-upload-key.p12
 
       - name: Build signed app bundle (Play Store)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.ANDROID_KEYSTORE_B64 != ''
         run: flutter build appbundle --release
         env:
           ANDROID_KEYSTORE_PATH: /tmp/atmos-upload-key.p12
