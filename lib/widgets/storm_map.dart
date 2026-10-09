@@ -40,7 +40,7 @@ class StormMap extends StatelessWidget {
             TileLayer(
               urlTemplate:
                   'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.skycast',
+              userAgentPackageName: 'com.skybl0cker.atmos',
             ),
             if (warningPolygons.isNotEmpty)
               PolygonLayer(

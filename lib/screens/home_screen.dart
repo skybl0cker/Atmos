@@ -124,7 +124,7 @@ class HomeScreen extends StatelessWidget {
       }
       return _Message(
         icon: Icons.wb_sunny_outlined,
-        text: 'Welcome to SkyCast',
+        text: 'Welcome to Atmos',
         actions: [
           FilledButton.icon(
             onPressed: s.useMyLocation,

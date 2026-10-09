@@ -13,7 +13,7 @@ import '../state/app_state.dart';
 import '../utils/radar_legend.dart';
 
 // Change this to match your applicationId when you rename the app.
-const _userAgent = 'com.example.skycast';
+const _userAgent = 'com.skybl0cker.atmos';
 const _startZoom = 7.0;
 const _speeds = [0.5, 1.0, 2.0, 4.0];
 const _baseFrameMs = 600;

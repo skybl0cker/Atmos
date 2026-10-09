@@ -16,7 +16,7 @@ const _darkTiles = ColorFilter.matrix(<double>[
   -0.15, -0.295, -0.055, 0, 165.5,
   0, 0, 0, 1, 0,
 ]);
-const _userAgent = 'com.example.skycast';
+const _userAgent = 'com.skybl0cker.atmos';
 
 class RadarCard extends StatelessWidget {
   const RadarCard({super.key});

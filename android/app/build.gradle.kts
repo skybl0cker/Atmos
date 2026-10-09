@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.weatherapp"
+    namespace = "com.skybl0cker.atmos"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.weatherapp"
+        applicationId = "com.skybl0cker.atmos"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

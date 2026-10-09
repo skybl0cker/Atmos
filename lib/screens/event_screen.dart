@@ -137,7 +137,7 @@ class _EventScreenState extends State<EventScreen> {
         'https://api.weather.gov/alerts/active?status=actual'
         '&message_type=alert&event=${Uri.encodeComponent('Hurricane Warning')}');
     final r = await http.get(uri, headers: {
-      'User-Agent': 'com.example.skycast',
+      'User-Agent': 'com.skybl0cker.atmos',
       'Accept': 'application/geo+json',
     }).timeout(const Duration(seconds: 15));
     if (r.statusCode != 200) return [];

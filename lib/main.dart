@@ -14,7 +14,7 @@ Future<void> main() async {
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await Workmanager().initialize(rainCheckDispatcher);
     await Workmanager().registerPeriodicTask(
-      'skycast-rain-check',
+      'atmos-rain-check',
       'rainCheckTask',
       frequency: const Duration(minutes: 30),
       constraints: Constraints(networkType: NetworkType.connected),
@@ -23,17 +23,17 @@ Future<void> main() async {
 
   final state = AppState();
   await state.init();
-  runApp(ChangeNotifierProvider.value(value: state, child: const SkyCastApp()));
+  runApp(ChangeNotifierProvider.value(value: state, child: const AtmosApp()));
 }
 
-class SkyCastApp extends StatelessWidget {
-  const SkyCastApp({super.key});
+class AtmosApp extends StatelessWidget {
+  const AtmosApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     final mode = context.select<AppState, ThemeMode>((s) => s.themeMode);
     return MaterialApp(
-      title: 'SkyCast',
+      title: 'Atmos',
       debugShowCheckedModeBanner: false,
       themeMode: mode,
       theme: ThemeData(

@@ -12,7 +12,7 @@ class AlertsService {
     });
     try {
       final r = await http
-          .get(uri, headers: {'User-Agent': 'SkyCast weather app (contact: you@example.com)'})
+          .get(uri, headers: {'User-Agent': 'Atmos weather app (contact: skybl0cker@gmail.com)'})
           .timeout(const Duration(seconds: 12));
       if (r.statusCode != 200) return [];
       final body = jsonDecode(r.body) as Map<String, dynamic>;

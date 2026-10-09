@@ -1,11 +1,11 @@
 {
-    "name": "SkyCast",
-    "short_name": "SkyCast",
+    "name": "Atmos",
+    "short_name": "Atmos",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "SkyCast weather for Knoxville and beyond.",
+    "description": "Atmos weather for Knoxville and beyond.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -20,7 +20,7 @@ class AppDrawer extends StatelessWidget {
                 children: [
                   const Icon(Icons.wb_sunny_rounded, size: 28),
                   const SizedBox(width: 10),
-                  Text('SkyCast', style: Theme.of(context).textTheme.titleLarge),
+                  Text('Atmos', style: Theme.of(context).textTheme.titleLarge),
                 ],
               ),
             ),
