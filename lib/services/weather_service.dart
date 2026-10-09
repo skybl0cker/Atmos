@@ -13,7 +13,9 @@ class WeatherService {
           'is_day,precipitation,weather_code,pressure_msl,'
           'wind_speed_10m,wind_direction_10m',
       'hourly': 'temperature_2m,precipitation_probability,precipitation,weather_code,'
-          'wind_speed_850hPa,wind_direction_850hPa',
+          'wind_speed_850hPa,wind_direction_850hPa,'
+          'wind_speed_700hPa,wind_direction_700hPa,'
+          'wind_speed_500hPa,wind_direction_500hPa',
       'minutely_15': 'precipitation_probability,precipitation,weather_code',
       'forecast_minutely_15': '16',
       'daily': 'weather_code,temperature_2m_max,temperature_2m_min,'

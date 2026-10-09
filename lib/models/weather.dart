@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../utils/weather_codes.dart';
 
 class Place {
@@ -252,6 +254,10 @@ class WeatherData {
     final hPrecip = (h['precipitation'] as List?) ?? [];
     final hWindSpd = (h['wind_speed_850hPa'] as List?) ?? [];
     final hWindDir = (h['wind_direction_850hPa'] as List?) ?? [];
+    final hWindSpd700 = (h['wind_speed_700hPa'] as List?) ?? [];
+    final hWindDir700 = (h['wind_direction_700hPa'] as List?) ?? [];
+    final hWindSpd500 = (h['wind_speed_500hPa'] as List?) ?? [];
+    final hWindDir500 = (h['wind_direction_500hPa'] as List?) ?? [];
     final startOfHour = DateTime(current.time.year, current.time.month,
         current.time.day, current.time.hour);
 
@@ -309,13 +315,51 @@ class WeatherData {
     ];
 
     final k0 = firstKept ?? 0;
+    // Layer-mean steering wind (850/700/500 hPa, pressure-weighted): a far
+    // better proxy for storm motion than any single level, and the fallback
+    // vector when observed echo motion is unavailable or untrusted.
+    final steer = _layerMeanWind(
+      k0,
+      [850.0, 700.0, 500.0],
+      [hWindSpd, hWindSpd700, hWindSpd500],
+      [hWindDir, hWindDir700, hWindDir500],
+    );
     return WeatherData(
       current: current,
       hourly: hourly,
       minutely: minutely,
       daily: daily,
-      steeringWindKmh: k0 < hWindSpd.length ? n(hWindSpd[k0]) : 0,
-      steeringWindDir: k0 < hWindDir.length ? i(hWindDir[k0]) : 0,
+      steeringWindKmh: steer.$1,
+      steeringWindDir: steer.$2,
     );
+  }
+
+  /// Pressure-weighted mean wind vector across the given levels. Averages
+  /// u/v components (not speed/dir) so opposing winds cancel correctly.
+  /// Returns (km/h, direction-from degrees). Missing levels are skipped; if
+  /// none are present the result is (0, 0).
+  static (double, int) _layerMeanWind(
+    int k,
+    List<double> pressures,
+    List<List> speeds,
+    List<List> dirs,
+  ) {
+    var u = 0.0, v = 0.0, w = 0.0;
+    for (var i = 0; i < pressures.length; i++) {
+      final s = speeds[i], d = dirs[i];
+      if (k >= s.length || k >= d.length) continue;
+      final spd = (s[k] as num).toDouble();
+      final dirRad = (d[k] as num).toDouble() * math.pi / 180.0;
+      // Meteorological dir = direction wind comes FROM.
+      u += -spd * math.sin(dirRad) * pressures[i];
+      v += -spd * math.cos(dirRad) * pressures[i];
+      w += pressures[i];
+    }
+    if (w == 0) return (0.0, 0);
+    u /= w;
+    v /= w;
+    final kmh = math.sqrt(u * u + v * v);
+    final dir = (math.atan2(-u, -v) * 180.0 / math.pi % 360 + 360) % 360;
+    return (kmh, dir.round());
   }
 }

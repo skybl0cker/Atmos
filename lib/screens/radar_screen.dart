@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../models/weather.dart';
+import '../services/echo_motion.dart';
 import '../services/radar_service.dart';
 import '../state/app_state.dart';
 import '../utils/radar_legend.dart';
@@ -58,6 +59,11 @@ class _RadarScreenState extends State<RadarScreen> {
   StreamSubscription? _mapSub;
   final Set<int> _visited = {};
 
+  /// Measured echo motion (null until the background estimate finishes, or
+  /// when the scene has too little echo to track). Estimated frames advect
+  /// along this when present, else the model steering wind.
+  EchoMotion? _echoMotion;
+
   @override
   void initState() {
     super.initState();
@@ -78,15 +84,48 @@ class _RadarScreenState extends State<RadarScreen> {
       if (!mounted) return;
       setState(() {
         _frames = frames;
+        _echoMotion = null; // re-measured below; never steer new frames stale
         // Start playback at "Now" — the newest past (non-forecast) frame.
         _index = _frames.lastIndexWhere((f) => !f.isForecast);
         if (_index < 0) _index = _frames.length - 1;
         _visited.add(_index);
         _mountRest();
       });
+      // Measure what the echoes actually did between the last two frames;
+      // runs in the background and upgrades the estimated frames when done.
+      unawaited(_estimateMotion());
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
+  }
+
+  /// Cross-correlates the last two observed radar tiles to measure real
+  /// echo motion. On success the estimated frames advect along the measured
+  /// vector (added even if the model wind was too calm to trigger them);
+  /// on failure the model steering wind remains in effect.
+  Future<void> _estimateMotion() async {
+    final past = _frames.where((f) => !f.isForecast).toList();
+    if (past.length < 2) return;
+    final a = past[past.length - 2];
+    final b = past[past.length - 1];
+    final m = await EchoMotionService.estimate(
+      tileUrlA: a.tileUrlAt(widget.place.lat, widget.place.lon, 7),
+      tileUrlB: b.tileUrlAt(widget.place.lat, widget.place.lon, 7),
+      dtSeconds: (b.timeUtc - a.timeUtc).toDouble(),
+      lat: widget.place.lat,
+    );
+    if (!mounted || m == null) return;
+    setState(() {
+      _echoMotion = m;
+      final before = _frames.length;
+      _frames = RadarService.addEstimatedForecast(
+          _frames, widget.windKmh, widget.windDir,
+          force: true);
+      for (var i = before; i < _frames.length; i++) {
+        _visited.add(i);
+      }
+      _index = _index.clamp(0, _frames.length - 1).toInt();
+    });
   }
 
   // Mount the remaining frames one at a time so the free tile server isn't
@@ -159,21 +198,40 @@ class _RadarScreenState extends State<RadarScreen> {
 
   String _speedLabel(double v) => v % 1 == 0 ? '${v.toInt()}×' : '${v}×';
 
+  /// Honest caption for the estimated frames: measured echo motion when the
+  /// cross-correlation succeeded, otherwise the model steering wind.
+  String _motionSourceLabel() {
+    final m = _echoMotion;
+    if (m != null) {
+      return 'measured echo motion · ${m.speedKmh.round()} km/h';
+    }
+    return 'model steering wind';
+  }
+
   bool get _ready => _frames.isNotEmpty && _visited.length == _frames.length;
 
-  /// Screen-pixel shift for an estimated frame: advect the echo along the
-  /// 850 hPa steering wind for the frame's lead time. Open-Meteo's wind
-  /// direction follows the meteorological convention (direction the wind
-  /// comes FROM), so the motion vector points 180° away.
+  /// Screen-pixel shift for an estimated frame: advect the echo for the
+  /// frame's lead time along the *measured* echo motion when available,
+  /// else the layer-mean model steering wind. Open-Meteo's wind direction
+  /// follows the meteorological convention (direction the wind comes FROM),
+  /// so the motion vector points 180° away.
   Offset _advectionOffset(RadarFrame f) {
     if (!f.estimated || f.leadMinutes <= 0) return Offset.zero;
-    final distM = (widget.windKmh / 3.6) * f.leadMinutes * 60;
-    final toRad = ((widget.windDir + 180) % 360) * math.pi / 180;
-    final dxM = distM * math.sin(toRad); // east positive
-    final dyM = distM * math.cos(toRad); // north positive
+    final leadSec = f.leadMinutes * 60.0;
+    double eastM, northM;
+    final m = _echoMotion;
+    if (m != null) {
+      eastM = m.eastMs * leadSec;
+      northM = m.northMs * leadSec;
+    } else {
+      final distM = (widget.windKmh / 3.6) * leadSec;
+      final toRad = ((widget.windDir + 180) % 360) * math.pi / 180;
+      eastM = distM * math.sin(toRad); // east positive
+      northM = distM * math.cos(toRad); // north positive
+    }
     final latRad = widget.place.lat * math.pi / 180;
     final mpp = 156543.03392 * math.cos(latRad) / math.pow(2, _zoom);
-    return Offset(dxM / mpp, -dyM / mpp);
+    return Offset(eastM / mpp, -northM / mpp);
   }
 
   @override
@@ -356,6 +414,15 @@ class _RadarScreenState extends State<RadarScreen> {
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w700,
                                                     color: Colors.lightBlueAccent)),
+                                          ),
+                                        ],
+                                        if (_frames[_index].estimated) ...[
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _motionSourceLabel(),
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.white54),
                                           ),
                                         ],
                                       ],

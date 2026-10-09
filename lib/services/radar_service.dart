@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 
 /// Precipitation radar from RainViewer (rainviewer.com) — free, no API key,
@@ -17,12 +18,17 @@ class RadarFrame {
   /// nowcast is unavailable). Rendered shifted along the steering wind.
   final bool estimated;
   final int leadMinutes;
+
+  /// Frame time as Unix seconds (from the RainViewer API). Used to derive
+  /// the real time delta when measuring echo motion.
+  final int timeUtc;
   final String _path;
 
   const RadarFrame({
     required this.label,
     required this.isForecast,
     required String path,
+    required this.timeUtc,
     this.estimated = false,
     this.leadMinutes = 0,
   }) : _path = path;
@@ -30,6 +36,21 @@ class RadarFrame {
   /// Universal Blue color scheme, smoothed.
   String get tileUrl =>
       'https://tilecache.rainviewer.com$_path/256/{z}/{x}/{y}/2/1_1.png';
+
+  /// Concrete tile URL covering [lat]/[lon] at [zoom] — for fetching a
+  /// single tile to measure echo motion (no map widget involved).
+  String tileUrlAt(double lat, double lon, int zoom) {
+    final n = math.pow(2, zoom).toInt();
+    final x = (((lon + 180) / 360 * n).floor()).clamp(0, n - 1);
+    final latRad = lat * math.pi / 180;
+    final y =
+        (((1 - math.log(math.tan(latRad) + 1 / math.cos(latRad)) / math.pi) /
+                    2 *
+                    n)
+                .floor())
+            .clamp(0, n - 1);
+    return 'https://tilecache.rainviewer.com$_path/256/$zoom/$x/$y/2/1_1.png';
+  }
 
   /// Unique widget key — estimated frames share the anchor's tiles.
   String get key => '$tileUrl|est=$estimated|lead=$leadMinutes';
@@ -77,12 +98,14 @@ class RadarService {
           label: _agoLabel(anchor, f),
           isForecast: false,
           path: f['path'] as String,
+          timeUtc: f['time'] as int,
         ),
       for (final f in nowcast)
         RadarFrame(
           label: _futureLabel(anchor, f),
           isForecast: true,
           path: f['path'] as String,
+          timeUtc: f['time'] as int,
         ),
     ];
     _cache = frames;
@@ -92,12 +115,15 @@ class RadarService {
 
   /// When RainViewer's motion-extrapolated nowcast frames are unavailable
   /// (common), synthesize +30/+60 min frames by advecting the latest
-  /// observed echo along the 850 hPa steering wind. A crude but honest
-  /// nowcast — the frames are badged ESTIMATED in the UI.
+  /// observed echo. The renderer shifts them along the measured echo motion
+  /// when available, else the layer-mean steering wind. Set [force] to add
+  /// the frames even when the model wind is calm — used when measured echo
+  /// motion exists despite a weak model wind.
   static List<RadarFrame> addEstimatedForecast(
-      List<RadarFrame> frames, double windKmh, int windDir) {
-    if (frames.any((f) => f.isForecast && !f.estimated)) return frames;
-    if (windKmh < 3 || frames.isEmpty) return frames;
+      List<RadarFrame> frames, double windKmh, int windDir,
+      {bool force = false}) {
+    if (frames.any((f) => f.isForecast)) return frames;
+    if (windKmh < 3 && !force || frames.isEmpty) return frames;
     final anchor = frames.lastWhere((f) => !f.isForecast,
         orElse: () => frames.last);
     return [
@@ -109,6 +135,7 @@ class RadarService {
           estimated: true,
           leadMinutes: lead,
           path: anchor._path,
+          timeUtc: anchor.timeUtc + lead * 60,
         ),
     ];
   }
