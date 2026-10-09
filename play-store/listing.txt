@@ -1,0 +1,31 @@
+SHORT DESCRIPTION (80 chars max)
+Radar-first weather: live radar, 14-day forecast, alerts & storm tracking.
+
+FULL DESCRIPTION
+Atmos is a radar-first weather app for people who actually watch the sky.
+
+LIVE RADAR, PREDICTED
+- Animated radar with observed frames, short-term nowcast, and motion-extrapolated
+  +30/+60 minute projections measured from real echo movement
+- HRRR model "future radar" out to +6 hours, badged as model guidance
+
+SEVERE WEATHER SITUATION ROOM
+- A dedicated tab that follows the biggest threat: hurricanes, tornado
+  outbreaks, flash floods, winter storms — and major earthquakes
+- Threats ranked by distance from you; the closest gets live stats, a track
+  map, warning polygons, and the latest news coverage
+- Active tropical cyclones with NHC best-track position, intensity, and
+  movement, even when official warnings lapse
+
+FORECASTS & ALERTS
+- 14-day daily forecast with highs, lows, and precipitation
+- NWS alerts with official safety instructions
+- Rain-start notifications
+
+BUILT FOR ACCURACY
+- Data from the National Weather Service, National Hurricane Center, USGS,
+  Open-Meteo, and RainViewer
+- Model output is always labeled as model output — no black boxes
+
+No accounts. No ads. No analytics. Your location never leaves your device
+except to fetch the weather you asked for.

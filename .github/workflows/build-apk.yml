@@ -1,5 +1,6 @@
-# Builds a release APK every time code is pushed to main,
-# and publishes it to the "Latest build" GitHub release.
+# Builds a release APK (and a signed Play Store app bundle when the
+# upload-key secrets are present) every time code is pushed to main,
+# and publishes them to the "Latest build" GitHub release.
 name: Build Android APK
 
 on:
@@ -36,8 +37,27 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/SkyCast.apk
+      - name: Decode upload keystore
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/atmos-upload-key.p12
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Build signed app bundle (Play Store)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: flutter build appbundle --release
+        env:
+          ANDROID_KEYSTORE_PATH: /tmp/atmos-upload-key.p12
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Rename artifacts
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/Atmos.apk
+          if [ -f build/app/outputs/bundle/release/app-release.aab ]; then
+            cp build/app/outputs/bundle/release/app-release.aab build/app/outputs/bundle/release/Atmos.aab
+          fi
 
       - name: Publish to "Latest build" release
         uses: softprops/action-gh-release@v2
@@ -46,6 +66,8 @@ jobs:
           name: Latest build
           prerelease: true
           body: |-
-            Automated build of SkyCast from the latest push to main.
+            Automated build of Atmos from the latest push to main.
             Commit: ${{ github.sha }}
-          files: build/app/outputs/flutter-apk/SkyCast.apk
+          files: |
+            build/app/outputs/flutter-apk/Atmos.apk
+            build/app/outputs/bundle/release/Atmos.aab
