@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'tropical_service.dart';
 import 'usgs_service.dart';
 
 /// The current headline severe-weather event in the US, derived from live
@@ -170,15 +171,21 @@ class SevereEventService {
     }
     SevereEvent event;
     try {
-      final nws = await _fetch();
-      final quake = await _quakeEvent().catchError((_) => null);
+      final results = await Future.wait([
+        _fetch(),
+        _quakeEvent().catchError((_) => null),
+        _tropicalEvent().catchError((_) => null),
+      ]);
+      final nws = results[0] ?? _none();
+      final quake = results[1];
+      final tropical = results[2];
       event = nws;
-      if (quake != null &&
-          quake.kind.index < nws.kind.index) {
-        event = quake;
-      }
-      if (event.kind == SevereKind.none && quake != null) {
-        event = quake;
+      for (final cand in [quake, tropical]) {
+        if (cand != null &&
+            (event.kind == SevereKind.none ||
+                cand.kind.index < event.kind.index)) {
+          event = cand;
+        }
       }
     } catch (_) {
       event = _none();
@@ -210,6 +217,36 @@ class SevereEventService {
       instruction: q.tsunami == 1
           ? 'Tsunami possible. Move to high ground immediately and follow local emergency guidance.'
           : 'Drop, Cover, and Hold On. Expect aftershocks.',
+    );
+  }
+
+  /// Builds a hurricane event from the strongest active NHC hurricane.
+  /// Covers the gap when NWS warnings lapse but the storm itself is
+  /// still a major threat (e.g. around landfall).
+  static Future<SevereEvent?> _tropicalEvent() async {
+    final storms = await TropicalService.activeStorms();
+    final hurricanes =
+        storms.where((s) => s.category >= 1).toList();
+    if (hurricanes.isEmpty) return null;
+    hurricanes
+        .sort((a, b) => b.windKt.compareTo(a.windKt));
+    final s = hurricanes.first;
+    final moveMph = (s.moveKt * 1.15078).round();
+    return SevereEvent(
+      kind: SevereKind.hurricane,
+      title: 'Hurricane ${s.name}',
+      headline:
+          '${s.categoryLabel} · ${s.windMph} mph sustained',
+      areas:
+          'Last position ${s.lat.toStringAsFixed(1)}°N '
+          '${s.lon.abs().toStringAsFixed(1)}°W',
+      description:
+          'Hurricane ${s.name} is a ${s.categoryLabel.toLowerCase()} '
+          'with ${s.windMph} mph sustained winds and a central '
+          'pressure of ${s.pressureMb} mb, moving ${s.moveCompass} '
+          'at $moveMph mph (latest NHC best-track).',
+      instruction:
+          'Follow guidance from the National Hurricane Center and local emergency officials.',
     );
   }
 
