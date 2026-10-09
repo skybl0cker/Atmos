@@ -1,5 +1,5 @@
-# Builds the SkyCast web app every time code is pushed to main
-# and deploys it to GitHub Pages (https://skybl0cker.github.io/SkyCast/).
+# Builds the Atmos web app every time code is pushed to main
+# and deploys it to GitHub Pages (https://skybl0cker.github.io/Atmos/).
 # iOS users can open it in Safari and use "Add to Home Screen"
 # to install it as a web app - no App Store or developer fee needed.
 name: Build and deploy web app
@@ -36,7 +36,7 @@ jobs:
         run: flutter pub get
 
       - name: Build web release
-        run: flutter build web --release --base-href /SkyCast/
+        run: flutter build web --release --base-href /Atmos/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
