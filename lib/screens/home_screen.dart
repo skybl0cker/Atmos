@@ -13,7 +13,6 @@ import '../widgets/app_drawer.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/radar_card.dart';
 import '../widgets/radio_card.dart';
-import '../widgets/weather_background.dart';
 import 'search_screen.dart';
 
 const _white70 = Colors.white70;
@@ -25,29 +24,23 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
-    final d = s.data;
-    final colors = d == null
-        ? const [Color(0xFF2B5876), Color(0xFF4E4376)]
-        : gradientFor(d.current.code, d.current.isDay);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 600),
-      decoration: BoxDecoration(
+    return Container(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: colors,
+          colors: [
+            Color(0xFF241A4D), // deep violet
+            Color(0xFF120E24), // near-black purple
+          ],
         ),
       ),
-      child: WeatherBackground(
-        code: d?.current.code ?? -1,
-        isDay: d?.current.isDay ?? true,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          drawer: const AppDrawer(),
-          appBar: _appBar(context, s),
-          body: _body(context, s),
-        ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        drawer: const AppDrawer(),
+        appBar: _appBar(context, s),
+        body: _body(context, s),
       ),
     );
   }

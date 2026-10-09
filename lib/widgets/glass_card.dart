@@ -20,9 +20,9 @@ class GlassCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.black.withAlpha(80),
+        color: const Color(0xFF1E1542).withAlpha(200),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withAlpha(30)),
+        border: Border.all(color: const Color(0xFF7C4DFF).withAlpha(40)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

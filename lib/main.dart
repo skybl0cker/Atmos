@@ -26,6 +26,9 @@ Future<void> main() async {
   runApp(ChangeNotifierProvider.value(value: state, child: const AtmosApp()));
 }
 
+/// Atmos purple — sampled from the app icon.
+const _atmosPurple = Color(0xFF7C4DFF);
+
 class AtmosApp extends StatelessWidget {
   const AtmosApp({super.key});
 
@@ -38,13 +41,15 @@ class AtmosApp extends StatelessWidget {
       themeMode: mode,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: Colors.blue,
+        colorSchemeSeed: _atmosPurple,
         brightness: Brightness.light,
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: Colors.blue,
+        colorSchemeSeed: _atmosPurple,
         brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF120E24),
+        cardColor: const Color(0xFF1D1540),
       ),
       home: const MainShell(),
     );
