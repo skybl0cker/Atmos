@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'usgs_service.dart';
+
 /// The current headline severe-weather event in the US, derived from live
 /// NWS alerts — drives the dynamic 4th tab (icon + label follow whatever
 /// is actually happening: hurricane, tornado outbreak, etc.).
@@ -11,8 +13,10 @@ enum SevereKind {
   hurricane,
   typhoon,
   tornadoEmergency,
+  quakeMajor, // M7.0+
   tornado,
   flashFlood,
+  quake, // M6.0+
   stormSurge,
   extremeWind,
   dustStorm,
@@ -55,6 +59,9 @@ class SevereEvent {
         return 'Typhoon';
       case SevereKind.tornadoEmergency:
         return 'Tornado Emg';
+      case SevereKind.quakeMajor:
+      case SevereKind.quake:
+        return 'Quake';
       case SevereKind.tornado:
         return 'Tornado';
       case SevereKind.flashFlood:
@@ -85,6 +92,9 @@ class SevereEvent {
       case SevereKind.tornado:
       case SevereKind.tornadoWatch:
         return Icons.tornado;
+      case SevereKind.quakeMajor:
+      case SevereKind.quake:
+        return Icons.vibration;
       case SevereKind.flashFlood:
         return Icons.flood;
       case SevereKind.stormSurge:
@@ -108,6 +118,10 @@ class SevereEvent {
       case SevereKind.typhoon:
       case SevereKind.tornadoEmergency:
         return Colors.red;
+      case SevereKind.quakeMajor:
+        return Colors.deepOrange;
+      case SevereKind.quake:
+        return Colors.orange;
       case SevereKind.tornado:
       case SevereKind.flashFlood:
       case SevereKind.extremeWind:
@@ -146,17 +160,64 @@ class SevereEventService {
   ];
 
   /// Returns the current headline event, or a kind=none placeholder when
-  /// nothing major is active.
+  /// nothing major is active. Considers NWS warnings and major
+  /// earthquakes, highest priority wins.
   static Future<SevereEvent> current() async {
     if (_cache != null &&
         _fetched != null &&
         DateTime.now().difference(_fetched!) < _cacheTtl) {
       return _cache!;
     }
-    final event = await _fetch().catchError((_) => _none());
+    SevereEvent event;
+    try {
+      final nws = await _fetch();
+      final quake = await _quakeEvent().catchError((_) => null);
+      event = nws;
+      if (quake != null &&
+          quake.kind.index < nws.kind.index) {
+        event = quake;
+      }
+      if (event.kind == SevereKind.none && quake != null) {
+        event = quake;
+      }
+    } catch (_) {
+      event = _none();
+    }
     _cache = event;
     _fetched = DateTime.now();
     return event;
+  }
+
+  /// Builds a quake event from the strongest recent significant quake, or
+  /// null when nothing reaches M6.0.
+  static Future<SevereEvent?> _quakeEvent() async {
+    final quakes = await UsgsService.significant();
+    if (quakes.isEmpty) return null;
+    final q = quakes.reduce((a, b) => a.mag >= b.mag ? a : b);
+    if (q.mag < 6.0) return null;
+    final kind =
+        q.mag >= 7.0 ? SevereKind.quakeMajor : SevereKind.quake;
+    final ago = _ago(q.time);
+    return SevereEvent(
+      kind: kind,
+      title: 'M${q.mag.toStringAsFixed(1)} Earthquake',
+      headline: q.place,
+      areas: q.place,
+      description:
+          'A magnitude ${q.mag.toStringAsFixed(1)} earthquake struck '
+          '${q.place} $ago.'
+          '${q.tsunami == 1 ? ' A tsunami is possible — if you are near the coast, move to high ground immediately.' : ''}',
+      instruction: q.tsunami == 1
+          ? 'Tsunami possible. Move to high ground immediately and follow local emergency guidance.'
+          : 'Drop, Cover, and Hold On. Expect aftershocks.',
+    );
+  }
+
+  static String _ago(DateTime t) {
+    final d = DateTime.now().toUtc().difference(t.toUtc());
+    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
+    if (d.inHours < 24) return '${d.inHours} hr ago';
+    return '${d.inDays} day${d.inDays == 1 ? '' : 's'} ago';
   }
 
   static SevereEvent _none() => const SevereEvent(
