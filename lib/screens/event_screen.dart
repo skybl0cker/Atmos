@@ -3,17 +3,19 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/news_service.dart';
 import '../services/severe_event_service.dart';
 import '../services/tropical_service.dart';
 import '../services/usgs_service.dart';
+import '../state/app_state.dart';
 import '../widgets/storm_map.dart';
 
-/// Situation room: the 4th tab. Whatever major event is happening —
-/// hurricane, tornado outbreak, earthquake — gets the full treatment:
-/// live stats, a map, and related news, TWC-style.
+/// Situation room: the 4th tab. Threats are ranked by distance from the
+/// user — the closest one gets the full feature treatment (live stats,
+/// map, news), the rest follow nearest-first.
 class EventScreen extends StatefulWidget {
   const EventScreen({super.key});
 
@@ -21,10 +23,21 @@ class EventScreen extends StatefulWidget {
   State<EventScreen> createState() => _EventScreenState();
 }
 
+/// A hurricane or earthquake, ranked by distance from the user.
+class _Threat {
+  final TropicalStorm? storm;
+  final Earthquake? quake;
+  final double distanceMi; // double.infinity when location unknown
+  const _Threat({this.storm, this.quake, required this.distanceMi});
+  bool get isStorm => storm != null;
+  String get title => isStorm
+      ? '${storm!.type} ${storm!.name}'
+      : 'M${quake!.mag.toStringAsFixed(1)} Earthquake';
+}
+
 class _EventScreenState extends State<EventScreen> {
   SevereEvent? _event;
-  List<TropicalStorm> _storms = [];
-  List<Earthquake> _quakes = [];
+  List<_Threat> _threats = [];
   List<NewsArticle> _news = [];
   List<List<LatLng>> _polygons = [];
   bool _failed = false;
@@ -41,6 +54,12 @@ class _EventScreenState extends State<EventScreen> {
       _failed = false;
     });
     try {
+      final userPlace =
+          context.read<AppState>().selected;
+      final userLoc = userPlace == null
+          ? null
+          : LatLng(userPlace.lat, userPlace.lon);
+
       final results = await Future.wait([
         SevereEventService.current(),
         TropicalService.activeStorms(),
@@ -48,28 +67,41 @@ class _EventScreenState extends State<EventScreen> {
       ]);
       final event = results[0] as SevereEvent;
       final storms = results[1] as List<TropicalStorm>;
-      final quakes = results[2] as List<Earthquake>;
+      final quakes = (results[2] as List<Earthquake>)
+          .where((q) => q.mag >= 6.0)
+          .toList();
 
+      final threats = _rank(storms, quakes, userLoc);
+
+      // Feature content for the closest threat.
       List<NewsArticle> news = [];
       List<List<LatLng>> polygons = [];
-      final featured = _featuredStorm(storms);
-      if (featured != null) {
-        final nq = '${featured.type} ${featured.name}';
-        final results2 = await Future.wait([
-          NewsService.forQuery(nq)
-              .catchError((_) => <NewsArticle>[]),
-          _warningPolygons()
-              .catchError((_) => <List<LatLng>>[]),
-        ]);
-        news = results2[0] as List<NewsArticle>;
-        polygons = results2[1] as List<List<LatLng>>;
+      if (threats.isNotEmpty) {
+        final top = threats.first;
+        if (top.isStorm) {
+          final s = top.storm!;
+          final r = await Future.wait([
+            NewsService.forQuery('${s.type} ${s.name}')
+                .catchError((_) => <NewsArticle>[]),
+            _warningPolygons()
+                .catchError((_) => <List<LatLng>>[]),
+          ]);
+          news = r[0] as List<NewsArticle>;
+          polygons = r[1] as List<List<LatLng>>;
+        } else {
+          final q = top.quake!;
+          final region = q.place.contains(',')
+              ? q.place.split(',').last.trim()
+              : q.place;
+          news = await NewsService.forQuery('earthquake $region')
+              .catchError((_) => <NewsArticle>[]);
+        }
       }
 
       if (mounted) {
         setState(() {
           _event = event;
-          _storms = storms;
-          _quakes = quakes;
+          _threats = threats;
           _news = news;
           _polygons = polygons;
         });
@@ -79,14 +111,24 @@ class _EventScreenState extends State<EventScreen> {
     }
   }
 
-  /// The Atlantic hurricane takes the feature slot; otherwise the first
-  /// active storm.
-  TropicalStorm? _featuredStorm(List<TropicalStorm> storms) {
-    if (storms.isEmpty) return null;
-    for (final s in storms) {
-      if (s.id.startsWith('AL')) return s;
-    }
-    return storms.first;
+  static List<_Threat> _rank(List<TropicalStorm> storms,
+      List<Earthquake> quakes, LatLng? userLoc) {
+    const dist = Distance();
+    double mi(LatLng p) => userLoc == null
+        ? double.infinity
+        : dist(userLoc, p) / 1609.34;
+    final threats = <_Threat>[
+      for (final s in storms)
+        _Threat(
+            storm: s,
+            distanceMi: mi(LatLng(s.lat, s.lon))),
+      for (final q in quakes)
+        _Threat(
+            quake: q, distanceMi: mi(q.location)),
+    ];
+    threats.sort((a, b) =>
+        a.distanceMi.compareTo(b.distanceMi));
+    return threats;
   }
 
   /// NWS hurricane-warning polygons for the map.
@@ -137,17 +179,19 @@ class _EventScreenState extends State<EventScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  if (_featuredStorm(_storms) != null)
-                    _HurricaneSection(
-                      storm: _featuredStorm(_storms)!,
+                  if (_threats.isNotEmpty) ...[
+                    _FeaturedThreat(
+                      threat: _threats.first,
                       polygons: _polygons,
                       news: _news,
                     ),
-                  if (_quakes.any((q) => q.mag >= 6.0)) ...[
+                    if (_threats.length > 1) ...[
+                      const SizedBox(height: 16),
+                      _FurtherOut(
+                          threats: _threats.sublist(1)),
+                    ],
                     const SizedBox(height: 16),
-                    _QuakeSection(quakes: _quakes),
                   ],
-                  const SizedBox(height: 16),
                   _AlertSection(event: event),
                   const SizedBox(height: 24),
                   const Text(
@@ -163,12 +207,55 @@ class _EventScreenState extends State<EventScreen> {
   }
 }
 
+String _distLabel(double mi) =>
+    mi.isInfinite ? '' : '${mi.round()} mi away';
+
+/// The closest threat, fully featured.
+class _FeaturedThreat extends StatelessWidget {
+  final _Threat threat;
+  final List<List<LatLng>> polygons;
+  final List<NewsArticle> news;
+  const _FeaturedThreat({
+    required this.threat,
+    required this.polygons,
+    required this.news,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Closest threat',
+            style:
+                TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        if (threat.isStorm)
+          _HurricaneSection(
+            storm: threat.storm!,
+            distanceMi: threat.distanceMi,
+            polygons: polygons,
+            news: news,
+          )
+        else
+          _QuakeFeature(
+            quake: threat.quake!,
+            distanceMi: threat.distanceMi,
+            news: news,
+          ),
+      ],
+    );
+  }
+}
+
 class _HurricaneSection extends StatelessWidget {
   final TropicalStorm storm;
+  final double distanceMi;
   final List<List<LatLng>> polygons;
   final List<NewsArticle> news;
   const _HurricaneSection({
     required this.storm,
+    required this.distanceMi,
     required this.polygons,
     required this.news,
   });
@@ -205,6 +292,14 @@ class _HurricaneSection extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 13, color: Colors.white70),
                   ),
+                  if (!distanceMi.isInfinite)
+                    Text(
+                      _distLabel(distanceMi),
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.orangeAccent,
+                          fontWeight: FontWeight.w700),
+                    ),
                 ],
               ),
             ),
@@ -239,6 +334,188 @@ class _HurricaneSection extends StatelessWidget {
           const SizedBox(height: 8),
           for (final a in news) _NewsTile(article: a),
         ],
+      ],
+    );
+  }
+}
+
+/// Featured earthquake: big magnitude, distance, tsunami flag, news.
+class _QuakeFeature extends StatelessWidget {
+  final Earthquake quake;
+  final double distanceMi;
+  final List<NewsArticle> news;
+  const _QuakeFeature({
+    required this.quake,
+    required this.distanceMi,
+    required this.news,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          color: Colors.deepOrange.withAlpha(30),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Colors.deepOrange),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: const BoxDecoration(
+                        color: Colors.deepOrange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          quake.mag.toStringAsFixed(1),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 22),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(quake.place,
+                              style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700)),
+                          Text(_ago(quake.time),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70)),
+                          if (!distanceMi.isInfinite)
+                            Text(
+                              _distLabel(distanceMi),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orangeAccent,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (quake.tsunami == 1) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.lightBlue.withAlpha(30),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: Colors.lightBlueAccent),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.tsunami,
+                            color:
+                                Colors.lightBlueAccent),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Tsunami possible. If near the coast, move to high ground immediately.',
+                            style: TextStyle(
+                                fontSize: 13, height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (news.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text('Latest coverage',
+              style:
+                  TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          for (final a in news) _NewsTile(article: a),
+        ],
+      ],
+    );
+  }
+
+  String _ago(DateTime t) {
+    final d = DateTime.now().toUtc().difference(t.toUtc());
+    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
+    if (d.inHours < 24) return '${d.inHours} hr ago';
+    return '${d.inDays}d ago';
+  }
+}
+
+/// Everything else, nearest-first, compact.
+class _FurtherOut extends StatelessWidget {
+  final List<_Threat> threats;
+  const _FurtherOut({required this.threats});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Further out',
+            style:
+                TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        for (final t in threats)
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: t.isStorm
+                  ? const CircleAvatar(
+                      backgroundColor: Colors.red,
+                      child: Icon(Icons.cyclone,
+                          color: Colors.white, size: 20),
+                    )
+                  : CircleAvatar(
+                      backgroundColor: t.quake!.mag >= 7
+                          ? Colors.red
+                          : Colors.deepOrange,
+                      child: Text(
+                        t.quake!.mag.toStringAsFixed(1),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13),
+                      ),
+                    ),
+              title: Text(t.title,
+                  style: const TextStyle(fontSize: 14)),
+              subtitle: t.isStorm
+                  ? Text(
+                      '${t.storm!.categoryLabel} · ${t.storm!.windMph} mph',
+                      style:
+                          const TextStyle(fontSize: 12))
+                  : Text(t.quake!.place,
+                      style:
+                          const TextStyle(fontSize: 12)),
+              trailing: t.distanceMi.isInfinite
+                  ? null
+                  : Text(_distLabel(t.distanceMi),
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white70)),
+            ),
+          ),
       ],
     );
   }
@@ -301,78 +578,9 @@ class _NewsTile extends StatelessWidget {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await launchUrl(uri,
+          mode: LaunchMode.externalApplication);
     }
-  }
-}
-
-class _QuakeSection extends StatelessWidget {
-  final List<Earthquake> quakes;
-  const _QuakeSection({required this.quakes});
-
-  @override
-  Widget build(BuildContext context) {
-    final big = quakes.where((q) => q.mag >= 6.0).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Recent significant earthquakes',
-            style:
-                TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        for (final q in big.take(5))
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: q.mag >= 7
-                      ? Colors.red
-                      : Colors.deepOrange,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    q.mag.toStringAsFixed(1),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15),
-                  ),
-                ),
-              ),
-              title: Text(q.place,
-                  style: const TextStyle(fontSize: 14)),
-              subtitle: Text(_ago(q.time),
-                  style: const TextStyle(fontSize: 12)),
-              trailing: q.tsunami == 1
-                  ? const Icon(Icons.tsunami,
-                      color: Colors.lightBlueAccent)
-                  : null,
-              onTap: q.url.isNotEmpty
-                  ? () async {
-                      final uri = Uri.tryParse(q.url);
-                      if (uri != null &&
-                          await canLaunchUrl(uri)) {
-                        await launchUrl(uri,
-                            mode:
-                                LaunchMode.externalApplication);
-                      }
-                    }
-                  : null,
-            ),
-          ),
-      ],
-    );
-  }
-
-  String _ago(DateTime t) {
-    final d = DateTime.now().toUtc().difference(t.toUtc());
-    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
-    if (d.inHours < 24) return '${d.inHours} hr ago';
-    return '${d.inDays}d ago';
   }
 }
 
