@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
+import 'hrrr_service.dart';
 
 /// Precipitation radar from RainViewer (rainviewer.com) — free, no API key,
 /// global coverage, sourced from worldwide radar composites. Frames include
@@ -19,10 +20,19 @@ class RadarFrame {
   final bool estimated;
   final int leadMinutes;
 
+  /// True for HRRR simulated-reflectivity model frames (the "future radar"
+  /// beyond the extrapolation window). Rendered at full opacity, badged
+  /// MODEL — a forecast, not an observation.
+  final bool isModel;
+
   /// Frame time as Unix seconds (from the RainViewer API). Used to derive
   /// the real time delta when measuring echo motion.
   final int timeUtc;
   final String _path;
+
+  /// Optional full tile-URL template ({z}/{x}/{y}) overriding the
+  /// RainViewer path scheme — used by HRRR model frames.
+  final String? _tileTemplate;
 
   const RadarFrame({
     required this.label,
@@ -31,10 +41,24 @@ class RadarFrame {
     required this.timeUtc,
     this.estimated = false,
     this.leadMinutes = 0,
-  }) : _path = path;
+    this.isModel = false,
+  })  : _path = path,
+        _tileTemplate = null;
+
+  const RadarFrame.hrrr({
+    required this.label,
+    required String template,
+  })  : isForecast = true,
+        estimated = false,
+        leadMinutes = 0,
+        isModel = true,
+        timeUtc = 0,
+        _path = '',
+        _tileTemplate = template;
 
   /// Universal Blue color scheme, smoothed.
   String get tileUrl =>
+      _tileTemplate ??
       'https://tilecache.rainviewer.com$_path/256/{z}/{x}/{y}/2/1_1.png';
 
   /// Concrete tile URL covering [lat]/[lon] at [zoom] — for fetching a
@@ -53,7 +77,7 @@ class RadarFrame {
   }
 
   /// Unique widget key — estimated frames share the anchor's tiles.
-  String get key => '$tileUrl|est=$estimated|lead=$leadMinutes';
+  String get key => '$tileUrl|est=$estimated|lead=$leadMinutes|model=$isModel';
 }
 
 class RadarService {
@@ -137,6 +161,19 @@ class RadarService {
           path: anchor._path,
           timeUtc: anchor.timeUtc + lead * 60,
         ),
+    ];
+  }
+
+  /// Appends HRRR simulated-reflectivity model frames after the
+  /// extrapolation window — the "future radar" beyond +60 min. Call after
+  /// [addEstimatedForecast]; never duplicates.
+  static List<RadarFrame> addHrrrForecast(
+      List<RadarFrame> frames, List<HrrrFrame> hrrr) {
+    if (frames.any((f) => f.isModel) || hrrr.isEmpty) return frames;
+    return [
+      ...frames,
+      for (final h in hrrr)
+        RadarFrame.hrrr(label: h.label, template: h.urlTemplate),
     ];
   }
 

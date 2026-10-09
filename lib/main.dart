@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_shell.dart';
 import 'services/background_rain.dart';
 import 'state/app_state.dart';
 
@@ -46,7 +46,7 @@ class SkyCastApp extends StatelessWidget {
         colorSchemeSeed: Colors.blue,
         brightness: Brightness.dark,
       ),
-      home: const HomeScreen(),
+      home: const MainShell(),
     );
   }
 }

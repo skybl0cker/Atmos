@@ -21,7 +21,7 @@ class WeatherService {
       'daily': 'weather_code,temperature_2m_max,temperature_2m_min,'
           'sunrise,sunset,uv_index_max,precipitation_probability_max',
       'timezone': 'auto',
-      'forecast_days': '7',
+      'forecast_days': '14',
     });
     final r = await http.get(uri).timeout(_timeout);
     if (r.statusCode != 200) {

@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../models/weather.dart';
 import '../services/echo_motion.dart';
+import '../services/hrrr_service.dart';
 import '../services/radar_service.dart';
 import '../state/app_state.dart';
 import '../utils/radar_legend.dart';
@@ -81,6 +82,10 @@ class _RadarScreenState extends State<RadarScreen> {
       // wind-advected estimated frames so the future is still visible.
       frames = RadarService.addEstimatedForecast(
           frames, widget.windKmh, widget.windDir);
+      // Then HRRR simulated reflectivity: the model "future radar" from
+      // +90 min out to +6 h.
+      frames = RadarService.addHrrrForecast(
+          frames, await HrrrService.forecastFrames());
       if (!mounted) return;
       setState(() {
         _frames = frames;
@@ -208,6 +213,15 @@ class _RadarScreenState extends State<RadarScreen> {
     return 'model steering wind';
   }
 
+  /// Badge for the current frame: observed past has no badge, RainViewer
+  /// nowcast is FORECAST, advected frames are ESTIMATED, and HRRR
+  /// simulated reflectivity is MODEL.
+  String _frameBadge(RadarFrame f) {
+    if (f.isModel) return 'MODEL';
+    if (f.estimated) return 'ESTIMATED';
+    return 'FORECAST';
+  }
+
   bool get _ready => _frames.isNotEmpty && _visited.length == _frames.length;
 
   /// Screen-pixel shift for an estimated frame: advect the echo for the
@@ -301,23 +315,31 @@ class _RadarScreenState extends State<RadarScreen> {
                     AnimatedOpacity(
                       opacity: i == _index ? _opacity : 0,
                       duration: const Duration(milliseconds: 200),
-                      child: _frames[i].estimated
-                          ? Opacity(
-                              opacity: 0.55,
-                              child: Transform.translate(
-                                offset: _advectionOffset(_frames[i]),
-                                child: TileLayer(
+                      child: _frames[i].isModel
+                          ? TileLayer(
+                              // HRRR simulated reflectivity — a model
+                              // forecast, rendered as-is (no advection).
+                              key: ValueKey(_frames[i].key),
+                              urlTemplate: _frames[i].tileUrl,
+                              userAgentPackageName: _userAgent,
+                            )
+                          : _frames[i].estimated
+                              ? Opacity(
+                                  opacity: 0.55,
+                                  child: Transform.translate(
+                                    offset: _advectionOffset(_frames[i]),
+                                    child: TileLayer(
+                                      key: ValueKey(_frames[i].key),
+                                      urlTemplate: _frames[i].tileUrl,
+                                      userAgentPackageName: _userAgent,
+                                    ),
+                                  ),
+                                )
+                              : TileLayer(
                                   key: ValueKey(_frames[i].key),
                                   urlTemplate: _frames[i].tileUrl,
                                   userAgentPackageName: _userAgent,
                                 ),
-                              ),
-                            )
-                          : TileLayer(
-                              key: ValueKey(_frames[i].key),
-                              urlTemplate: _frames[i].tileUrl,
-                              userAgentPackageName: _userAgent,
-                            ),
                     ),
                   MarkerLayer(markers: [
                     Marker(
@@ -407,13 +429,16 @@ class _RadarScreenState extends State<RadarScreen> {
                                                   color: Colors.blueAccent),
                                             ),
                                             child: Text(
-                                                _frames[_index].estimated
-                                                    ? 'ESTIMATED'
-                                                    : 'FORECAST',
-                                                style: const TextStyle(
+                                                _frameBadge(_frames[_index]),
+                                                style: TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w700,
-                                                    color: Colors.lightBlueAccent)),
+                                                    color: _frames[_index]
+                                                            .isModel
+                                                        ? Colors
+                                                            .purpleAccent
+                                                        : Colors
+                                                            .lightBlueAccent)),
                                           ),
                                         ],
                                         if (_frames[_index].estimated) ...[
