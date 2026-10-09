@@ -172,20 +172,12 @@ class SevereEventService {
       );
 
   static Future<SevereEvent> _fetch() async {
-    final query = _events
-        .map((e) => 'event=${Uri.encodeComponent(e)}')
-        .join('&');
-    final uri = Uri.parse(
-        '$_api?status=actual&message_type=alert&$query');
-    final r = await http.get(uri, headers: {
-      'User-Agent': 'com.example.skycast',
-      'Accept': 'application/geo+json',
-    }).timeout(const Duration(seconds: 15));
-    if (r.statusCode != 200) return _none();
-    final features =
-        ((jsonDecode(r.body) as Map<String, dynamic>)['features']
-                as List)
-            .cast<Map<String, dynamic>>();
+    // NOTE: api.weather.gov does not OR multiple `event` params (only the
+    // last is honored), so query each event separately in parallel.
+    final futures = _events.map((e) => _fetchEvent(e).catchError((_) =>
+        <Map<String, dynamic>>[]));
+    final results = await Future.wait(futures);
+    final features = results.expand((l) => l).toList();
 
     final hits = <_Hit>[];
     for (final f in features) {
@@ -213,6 +205,21 @@ class SevereEventService {
       expires: p['expires'] as String?,
       alertCount: sameKind.length,
     );
+  }
+
+  static Future<List<Map<String, dynamic>>> _fetchEvent(
+      String event) async {
+    final uri = Uri.parse(
+        '$_api?status=actual&message_type=alert'
+        '&event=${Uri.encodeComponent(event)}');
+    final r = await http.get(uri, headers: {
+      'User-Agent': 'com.example.skycast',
+      'Accept': 'application/geo+json',
+    }).timeout(const Duration(seconds: 15));
+    if (r.statusCode != 200) return [];
+    return ((jsonDecode(r.body) as Map<String, dynamic>)['features']
+            as List)
+        .cast<Map<String, dynamic>>();
   }
 
   /// Maps an NWS alert to a kind. Tornado/flash-flood emergencies are
