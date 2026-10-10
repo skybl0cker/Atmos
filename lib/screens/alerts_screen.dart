@@ -46,19 +46,27 @@ class _AlertCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (a.description.isNotEmpty) ...[
-                  Text(a.description),
-                  const SizedBox(height: 12),
-                ],
-                if (a.instruction.isNotEmpty) ...[
-                  const Text('What to do', style: TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(a.instruction),
-                ],
-              ],
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.5,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (a.description.isNotEmpty) ...[
+                      Text(a.description),
+                      const SizedBox(height: 12),
+                    ],
+                    if (a.instruction.isNotEmpty) ...[
+                      const Text('What to do',
+                          style: TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(a.instruction),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
         ],
