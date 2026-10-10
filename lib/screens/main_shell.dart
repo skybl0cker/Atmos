@@ -27,6 +27,10 @@ class _MainShellState extends State<MainShell> {
     _refreshEvent();
     _timer = Timer.periodic(
         const Duration(minutes: 15), (_) => _refreshEvent());
+    // Fresh installs: ask for location now that the Activity exists.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().ensureLocation();
+    });
   }
 
   @override

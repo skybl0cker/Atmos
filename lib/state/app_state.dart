@@ -60,10 +60,22 @@ class AppState extends ChangeNotifier {
 
     if (selected != null) {
       unawaited(refresh());
-    } else {
-      unawaited(useMyLocation());
     }
+    // NOTE: do NOT call useMyLocation() here — init() runs before runApp(),
+    // so there is no Activity yet for the permission dialog. The home screen
+    // triggers it after the first frame via ensureLocation().
   }
+
+  /// Called by the home screen after the first frame. If there is no place
+  /// selected yet (fresh install), this requests location permission and
+  /// loads weather for the current position.
+  Future<void> ensureLocation() async {
+    if (selected != null || _locationRequested) return;
+    _locationRequested = true;
+    await useMyLocation();
+  }
+
+  bool _locationRequested = false;
 
   // ---- units & formatting -------------------------------------------------
 
