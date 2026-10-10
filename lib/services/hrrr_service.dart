@@ -26,24 +26,32 @@ class HrrrService {
       'refd_1080.json';
   static const _timeout = Duration(seconds: 12);
 
-  /// Builds simulated-radar frames from +90 min out to +6 h. The model run
-  /// comes from IEM's own metadata (latest fully processed run), so the
-  /// tiles are guaranteed to exist and the labels are exact. Returns [] if
-  /// the metadata can't be read — the extrapolation frames still work.
+  /// Builds simulated-radar frames from the earliest available forecast hour
+  /// (>= now) out to +6 h — the single unified "future radar" model. The
+  /// model run comes from IEM's own metadata (latest fully processed run),
+  /// so the tiles are guaranteed to exist and the labels are exact.
+  /// Returns [] if the metadata can't be read.
   static Future<List<HrrrFrame>> forecastFrames({DateTime? now}) async {
     final t = (now ?? DateTime.now()).toUtc();
     final init = await _latestRun() ?? _conservativeRun(t);
     final initStr = _fmt(init);
 
-    const offsets = [90, 120, 150, 180, 240, 300, 360];
+    // First forecast hour at or after now, then every 30 min to +6h.
+    // (IEM processes runs ~1h50m after init, so the earliest usable frame
+    // is typically within the last hour of the run.)
+    final minFMin = t.difference(init).inMinutes;
     final frames = <HrrrFrame>[];
-    for (final off in offsets) {
+    for (var off = 0; off <= 360; off += 30) {
       final fMin =
-          ((t.difference(init).inMinutes + off) / 15).round() * 15;
+          ((minFMin + off) / 15).round() * 15;
       if (fMin < 15 || fMin > 1080) continue;
+      // Skip frames that would duplicate "now" — start the future cleanly.
+      if (off == 0 && fMin - minFMin < 15) continue;
       final f = fMin.toString().padLeft(4, '0');
+      final leadMin = fMin - minFMin;
+      if (leadMin < 15) continue;
       frames.add(HrrrFrame(
-        label: off < 120 ? '+$off min' : '+${off ~/ 60} hr',
+        label: leadMin < 120 ? '+$leadMin min' : '+${leadMin ~/ 60} hr',
         urlTemplate:
             'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/'
             'hrrr::REFD-F$f-$initStr/{z}/{x}/{y}.png',

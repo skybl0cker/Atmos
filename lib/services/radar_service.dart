@@ -143,30 +143,8 @@ class RadarService {
   /// when available, else the layer-mean steering wind. Set [force] to add
   /// the frames even when the model wind is calm — used when measured echo
   /// motion exists despite a weak model wind.
-  static List<RadarFrame> addEstimatedForecast(
-      List<RadarFrame> frames, double windKmh, int windDir,
-      {bool force = false}) {
-    if (frames.any((f) => f.isForecast)) return frames;
-    if (windKmh < 3 && !force || frames.isEmpty) return frames;
-    final anchor = frames.lastWhere((f) => !f.isForecast,
-        orElse: () => frames.last);
-    return [
-      ...frames,
-      for (final lead in [30, 60])
-        RadarFrame(
-          label: '+$lead min',
-          isForecast: true,
-          estimated: true,
-          leadMinutes: lead,
-          path: anchor._path,
-          timeUtc: anchor.timeUtc + lead * 60,
-        ),
-    ];
-  }
-
-  /// Appends HRRR simulated-reflectivity model frames after the
-  /// extrapolation window — the "future radar" beyond +60 min. Call after
-  /// [addEstimatedForecast]; never duplicates.
+  /// Appends HRRR simulated-reflectivity model frames — the single unified
+  /// "future radar". Never duplicates.
   static List<RadarFrame> addHrrrForecast(
       List<RadarFrame> frames, List<HrrrFrame> hrrr) {
     if (frames.any((f) => f.isModel) || hrrr.isEmpty) return frames;
