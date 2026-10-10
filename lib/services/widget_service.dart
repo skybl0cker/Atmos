@@ -1,10 +1,11 @@
-import 'package:home_widget/home_widget.dart';
+import 'package:flutter/services.dart';
 
 import '../models/weather.dart';
 import '../utils/weather_codes.dart';
 
-/// Pushes the current conditions to the Android home screen widget.
-/// No-op on other platforms.
+/// Pushes the current conditions to the Android home screen widget via a
+/// platform channel to AtmosWidgetProvider. No-op on other platforms or if
+/// the native side isn't available.
 Future<void> updateAtmosWidget(
     WeatherData data, String placeName, bool imperial) async {
   try {
@@ -19,14 +20,15 @@ Future<void> updateAtmosWidget(
             ? 'H ${(today.maxC * 9 / 5 + 32).round()}°  L ${(today.minC * 9 / 5 + 32).round()}°'
             : 'H ${today.maxC.round()}°  L ${today.minC.round()}°';
 
-    await HomeWidget.saveWidgetData<String>('place', placeName);
-    await HomeWidget.saveWidgetData<String>('temp', t);
-    await HomeWidget.saveWidgetData<String>('icon', _emoji(c.code, c.isDay));
-    await HomeWidget.saveWidgetData<String>('condition', describe(c.code));
-    await HomeWidget.saveWidgetData<String>('hilo', hi);
-    await HomeWidget.updateWidget(
-      name: 'AtmosWidgetProvider',
-      androidName: 'AtmosWidgetProvider',
+    await const MethodChannel('com.skybl0cker.atmos/widget').invokeMethod(
+      'updateWidget',
+      {
+        'place': placeName,
+        'temp': t,
+        'icon': _emoji(c.code, c.isDay),
+        'condition': describe(c.code),
+        'hilo': hi,
+      },
     );
   } catch (_) {
     // Widget may not be installed; never break the app over it.

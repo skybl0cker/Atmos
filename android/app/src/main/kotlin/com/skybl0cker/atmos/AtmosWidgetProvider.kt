@@ -1,39 +1,55 @@
 package com.skybl0cker.atmos
 
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
-import android.content.SharedPreferences
+import android.content.Intent
 import android.widget.RemoteViews
-import es.antonborri.home_widget.HomeWidgetBackgroundIntent
-import es.antonborri.home_widget.HomeWidgetLaunchIntent
-import es.antonborri.home_widget.HomeWidgetProvider
 
-class AtmosWidgetProvider : HomeWidgetProvider() {
+class AtmosWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-        widgetData: SharedPreferences
+        appWidgetIds: IntArray
     ) {
+        val prefs = context.getSharedPreferences("atmos_widget", Context.MODE_PRIVATE)
         appWidgetIds.forEach { widgetId ->
             val views = RemoteViews(context.packageName, R.layout.atmos_widget).apply {
-                setTextViewText(R.id.widget_place,
-                    widgetData.getString("place", "Atmos"))
-                setTextViewText(R.id.widget_temp,
-                    widgetData.getString("temp", "--°"))
-                setTextViewText(R.id.widget_icon,
-                    widgetData.getString("icon", "☀"))
-                setTextViewText(R.id.widget_condition,
-                    widgetData.getString("condition", "--"))
-                setTextViewText(R.id.widget_hilo,
-                    widgetData.getString("hilo", ""))
+                setTextViewText(R.id.widget_place, prefs.getString("place", "Atmos"))
+                setTextViewText(R.id.widget_temp, prefs.getString("temp", "--°"))
+                setTextViewText(R.id.widget_icon, prefs.getString("icon", "☀️"))
+                setTextViewText(R.id.widget_condition, prefs.getString("condition", "--"))
+                setTextViewText(R.id.widget_hilo, prefs.getString("hilo", ""))
 
-                val launchIntent =
-                    HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
-                setOnClickPendingIntent(R.id.widget_place, launchIntent)
-                setOnClickPendingIntent(R.id.widget_temp, launchIntent)
+                val launchIntent = context.packageManager
+                    .getLaunchIntentForPackage(context.packageName)
+                val pending = android.app.PendingIntent.getActivity(
+                    context, 0, launchIntent,
+                    android.app.PendingIntent.FLAG_IMMUTABLE or
+                        android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                setOnClickPendingIntent(R.id.widget_place, pending)
+                setOnClickPendingIntent(R.id.widget_temp, pending)
             }
             appWidgetManager.updateAppWidget(widgetId, views)
+        }
+    }
+
+    companion object {
+        fun pushUpdate(context: Context, data: Map<String, String>) {
+            val prefs = context.getSharedPreferences("atmos_widget", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                data.forEach { (k, v) -> putString(k, v) }
+                apply()
+            }
+            val intent = Intent(context, AtmosWidgetProvider::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                val ids = AppWidgetManager.getInstance(context)
+                    .getAppWidgetIds(ComponentName(context, AtmosWidgetProvider::class.java))
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            }
+            context.sendBroadcast(intent)
         }
     }
 }
