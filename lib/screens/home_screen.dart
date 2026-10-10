@@ -5,6 +5,7 @@ import '../models/weather.dart';
 import '../services/severe_event_service.dart';
 import '../state/app_state.dart';
 import '../utils/weather_codes.dart';
+import '../widgets/alert_banner.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/weather_icon.dart';
 import 'event_screen.dart';
@@ -201,6 +202,7 @@ class HomeScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          const AlertBanner(),
           if (d != null) ...[
             Text('Weather Today',
                 style: TextStyle(
