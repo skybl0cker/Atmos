@@ -150,42 +150,29 @@ class HomeScreen extends StatelessWidget {
 
   Widget _hero(AppState s, Color onBg, Color onBgSoft) {
     final c = s.data!.current;
-    final today = s.data!.daily.first;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) =>
-                    const LinearGradient(
-                      colors: [Colors.white, Colors.white, Colors.transparent],
-                      stops: [0.0, 0.65, 1.0],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ).createShader(bounds),
-                blendMode: BlendMode.srcIn,
-                child: Text(s.temp(c.tempC).replaceAll('°', ''),
-                    style: const TextStyle(
-                        fontSize: 110,
-                        fontWeight: FontWeight.w200,
-                        color: Colors.white,
-                        height: 1.0)),
-              ),
-              const SizedBox(width: 12),
-              WeatherIcon(c.code, day: c.isDay, size: 46),
-            ],
+          ShaderMask(
+            shaderCallback: (bounds) =>
+                const LinearGradient(
+                  colors: [Colors.white, Colors.white, Colors.transparent],
+                  stops: [0.0, 0.65, 1.0],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ).createShader(bounds),
+            blendMode: BlendMode.srcIn,
+            child: Text(s.temp(c.tempC).replaceAll('°', ''),
+                style: const TextStyle(
+                    fontSize: 110,
+                    fontWeight: FontWeight.w200,
+                    color: Colors.white,
+                    height: 1.0)),
           ),
-          Text(describe(c.code),
-              style: TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w600, color: onBg)),
-          const SizedBox(height: 4),
-          Text(
-              'H ${s.temp(today.maxC)}  ·  L ${s.temp(today.minC)}  ·  Feels ${s.temp(c.feelsC)}',
-              style: TextStyle(fontSize: 14, color: onBgSoft)),
+          const SizedBox(width: 12),
+          WeatherIcon(c.code, day: c.isDay, size: 46),
         ],
       ),
     );
