@@ -11,6 +11,25 @@ import 'forecast_screen.dart';
 import 'radar_screen.dart';
 import 'search_screen.dart';
 
+/// Gentle wave for the top edge of the bottom card, echoing the
+/// rolling hills in the illustrated backgrounds.
+class _WaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(0, 26);
+    path.quadraticBezierTo(size.width * 0.25, 6, size.width * 0.5, 20);
+    path.quadraticBezierTo(size.width * 0.75, 34, size.width, 16);
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
 /// Illustrated home: a painterly landscape background that follows the
 /// conditions, a big temperature readout, and a bottom card with the
 /// hourly outlook plus dives into Radar / Forecast / Alerts.
@@ -20,7 +39,11 @@ class HomeScreen extends StatelessWidget {
 
   String _bgFor(int code, bool isDay) {
     if (!isDay) return 'assets/backgrounds/bg_night.webp';
-    if (isRainCode(code)) return 'assets/backgrounds/bg_rain.webp';
+    // Overcast skies read as gloom — show the rain illustration, since the
+    // model often reports overcast while precipitation is starting.
+    if (isRainCode(code) || code == 3) {
+      return 'assets/backgrounds/bg_rain.webp';
+    }
     return 'assets/backgrounds/bg_day.webp';
   }
 
@@ -123,12 +146,28 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(s.temp(c.tempC).replaceAll('°', ''),
-              style: TextStyle(
-                  fontSize: 110,
-                  fontWeight: FontWeight.w200,
-                  color: onBg,
-                  height: 1.0)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) =>
+                    const LinearGradient(
+                      colors: [Color(0xFFB388FF), Color(0xFFE040FB)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ).createShader(bounds),
+                child: Text(s.temp(c.tempC).replaceAll('°', ''),
+                    style: const TextStyle(
+                        fontSize: 110,
+                        fontWeight: FontWeight.w200,
+                        color: Colors.white,
+                        height: 1.0)),
+              ),
+              const SizedBox(width: 12),
+              Icon(iconFor(c.code, day: c.isDay),
+                  size: 44, color: onBg),
+            ],
+          ),
           Text(describe(c.code),
               style: TextStyle(
                   fontSize: 22, fontWeight: FontWeight.w600, color: onBg)),
@@ -144,15 +183,17 @@ class HomeScreen extends StatelessWidget {
   Widget _bottomCard(
       BuildContext context, AppState s, SevereEvent? event) {
     final d = s.data;
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [
-          BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, -6)),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+    return ClipPath(
+      clipper: _WaveClipper(),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black26, blurRadius: 24, offset: Offset(0, -6)),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 34, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -201,6 +242,7 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }
