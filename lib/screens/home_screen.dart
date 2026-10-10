@@ -73,6 +73,7 @@ class HomeScreen extends StatelessWidget {
             child: Image.asset(bg, fit: BoxFit.cover),
           ),
           SafeArea(
+            bottom: false,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -197,7 +198,8 @@ class HomeScreen extends StatelessWidget {
                 color: Colors.black26, blurRadius: 24, offset: Offset(0, -6)),
           ],
         ),
-        padding: const EdgeInsets.fromLTRB(20, 34, 20, 20),
+        padding: EdgeInsets.fromLTRB(
+            20, 34, 20, 20 + MediaQuery.paddingOf(context).bottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
