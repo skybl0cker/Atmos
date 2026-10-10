@@ -6,9 +6,11 @@ import '../services/severe_event_service.dart';
 import '../state/app_state.dart';
 import '../utils/weather_codes.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/weather_icon.dart';
 import 'event_screen.dart';
 import 'forecast_screen.dart';
 import 'radar_screen.dart';
+import 'radio_screen.dart';
 import 'search_screen.dart';
 
 /// Gentle wave for the top edge of the bottom card, echoing the
@@ -126,6 +128,14 @@ class HomeScreen extends StatelessWidget {
               onPressed: () => s.toggleSaved(p),
             ),
           IconButton(
+            tooltip: 'Weather radio',
+            icon: Icon(Icons.radio, color: onBg),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RadioScreen()),
+            ),
+          ),
+          IconButton(
             tooltip: 'Add a place',
             icon: Icon(Icons.search, color: onBg),
             onPressed: () => Navigator.push(
@@ -166,8 +176,7 @@ class HomeScreen extends StatelessWidget {
                         height: 1.0)),
               ),
               const SizedBox(width: 12),
-              Icon(iconFor(c.code, day: c.isDay),
-                  size: 44, color: onBg),
+              WeatherIcon(c.code, day: c.isDay, size: 46),
             ],
           ),
           Text(describe(c.code),
@@ -185,12 +194,17 @@ class HomeScreen extends StatelessWidget {
   Widget _bottomCard(
       BuildContext context, AppState s, SevereEvent? event) {
     final d = s.data;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = dark ? const Color(0xFF1B1440) : Colors.white;
+    final ink = dark ? Colors.white : const Color(0xFF2A2140);
+    final inkSoft = dark ? Colors.white70 : const Color(0xFF6B5A8E);
+    final chipBg = dark ? Colors.white.withAlpha(24) : const Color(0xFFF4F1FD);
     return ClipPath(
       clipper: _WaveClipper(),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
+        decoration: BoxDecoration(
+          color: cardBg,
+          boxShadow: const [
             BoxShadow(
                 color: Colors.black26, blurRadius: 24, offset: Offset(0, -6)),
           ],
@@ -201,15 +215,19 @@ class HomeScreen extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (d != null) ...[
-            const Text('Weather Today',
+            Text('Weather Today',
                 style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF2A2140))),
+                    color: ink)),
             const SizedBox(height: 12),
-            _hourlyStrip(s),
+            _hourlyStrip(s, dark, ink, inkSoft, chipBg),
             const SizedBox(height: 16),
-            const Divider(height: 1, color: Color(0xFFE8E2F5)),
+            Divider(
+                height: 1,
+                color: dark
+                    ? Colors.white.withAlpha(30)
+                    : const Color(0xFFE8E2F5)),
             const SizedBox(height: 12),
           ],
           Row(
@@ -293,7 +311,8 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _hourlyStrip(AppState s) {
+  Widget _hourlyStrip(
+      AppState s, bool dark, Color ink, Color inkSoft, Color chipBg) {
     final hours = s.data!.hourly.take(8).toList();
     return SizedBox(
       height: 92,
@@ -308,21 +327,19 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: i == 0
-                  ? const Color(0xFF7C4DFF).withAlpha(26)
-                  : const Color(0xFFF4F1FD),
+                  ? const Color(0xFF7C4DFF).withAlpha(dark ? 60 : 26)
+                  : chipBg,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(i == 0 ? 'Now' : DateFormat('h a').format(h.time),
-                    style: const TextStyle(
-                        color: Color(0xFF6B5A8E), fontSize: 11)),
-                Icon(iconFor(h.code, day: isDayHour(h.time)),
-                    color: const Color(0xFF3A2A5E), size: 22),
+                    style: TextStyle(color: inkSoft, fontSize: 11)),
+                WeatherIcon(h.code, day: isDayHour(h.time), size: 24),
                 Text(s.temp(h.tempC),
-                    style: const TextStyle(
-                        color: Color(0xFF2A2140),
+                    style: TextStyle(
+                        color: ink,
                         fontSize: 15,
                         fontWeight: FontWeight.w700)),
               ],
