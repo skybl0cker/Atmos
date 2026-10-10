@@ -74,14 +74,26 @@ class HomeScreen extends StatelessWidget {
           ),
           SafeArea(
             bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _topBar(context, s, onBg),
-                if (d != null) _hero(s, onBg, onBgSoft),
-                const Spacer(),
-                _bottomCard(context, s, event),
-              ],
+            child: RefreshIndicator(
+              onRefresh: () => context.read<AppState>().refresh(),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.sizeOf(context).height -
+                        MediaQuery.paddingOf(context).top,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _topBar(context, s, onBg),
+                      if (d != null) _hero(s, onBg, onBgSoft),
+                      const Spacer(),
+                      _bottomCard(context, s, event),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
           if (d == null)
