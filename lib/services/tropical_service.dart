@@ -134,7 +134,8 @@ class TropicalService {
     final basin = id.substring(0, 2).toLowerCase();
     final file = 'b$basin${id.substring(2)}.dat';
     final r = await http
-        .get(Uri.parse('https://ftp.nhc.noaa.gov/atcf/btk/$file'))
+        .get(Uri.parse('https://ftp.nhc.noaa.gov/atcf/btk/$file'),
+            headers: {'User-Agent': 'Mozilla/5.0'})
         .timeout(_timeout);
     if (r.statusCode != 200) return null;
 
