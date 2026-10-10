@@ -152,10 +152,11 @@ class HomeScreen extends StatelessWidget {
               ShaderMask(
                 shaderCallback: (bounds) =>
                     const LinearGradient(
-                      colors: [Color(0xFFB388FF), Color(0xFFE040FB)],
+                      colors: [Colors.white, Colors.transparent],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ).createShader(bounds),
+                blendMode: BlendMode.srcIn,
                 child: Text(s.temp(c.tempC).replaceAll('°', ''),
                     style: const TextStyle(
                         fontSize: 110,
