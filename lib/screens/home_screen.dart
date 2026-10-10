@@ -152,7 +152,8 @@ class HomeScreen extends StatelessWidget {
               ShaderMask(
                 shaderCallback: (bounds) =>
                     const LinearGradient(
-                      colors: [Colors.white, Colors.transparent],
+                      colors: [Colors.white, Colors.white, Colors.transparent],
+                      stops: [0.0, 0.65, 1.0],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ).createShader(bounds),
