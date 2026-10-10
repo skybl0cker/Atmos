@@ -8,6 +8,7 @@ import '../services/alerts_service.dart';
 import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../services/weather_service.dart';
+import '../services/widget_service.dart';
 import '../utils/haptics.dart';
 
 class AppState extends ChangeNotifier {
@@ -126,6 +127,8 @@ class AppState extends ChangeNotifier {
       if (notificationsEnabled) {
         unawaited(_notifyNewAlerts(a));
       }
+      // Keep the home screen widget fresh whenever the app loads new data.
+      unawaited(updateAtmosWidget(d, p.name, imperial));
     } catch (e) {
       if (id != _req) return;
       error = _msg(e);

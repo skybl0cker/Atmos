@@ -3,20 +3,28 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
 import 'screens/main_shell.dart';
-import 'services/background_rain.dart';
+import 'services/background_dispatcher.dart';
 import 'state/app_state.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Closed-app rain checks: Android only. iOS background execution can't do
-  // this without a push server, and the web build has no background at all.
+  // Closed-app background work: Android only. iOS background execution can't
+  // do this without a push server, and the web build has no background at
+  // all. One dispatcher handles both the rain check and the severe-alert
+  // check (Workmanager allows a single entry point).
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    await Workmanager().initialize(rainCheckDispatcher);
+    await Workmanager().initialize(atmosDispatcher);
     await Workmanager().registerPeriodicTask(
       'atmos-rain-check',
       'rainCheckTask',
       frequency: const Duration(minutes: 30),
+      constraints: Constraints(networkType: NetworkType.connected),
+    );
+    await Workmanager().registerPeriodicTask(
+      'atmos-alert-check',
+      'alertCheckTask',
+      frequency: const Duration(minutes: 15),
       constraints: Constraints(networkType: NetworkType.connected),
     );
   }

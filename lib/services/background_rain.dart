@@ -2,29 +2,21 @@ import 'dart:convert';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:workmanager/workmanager.dart';
 
 import '../models/weather.dart';
 import 'weather_service.dart';
+import 'widget_service.dart';
 
 /// Entry point for the Android background worker. Fires roughly every 30
 /// minutes even when the app is closed and notifies when rain is about to
-/// start at one of Sir's places.
+/// start at one of Sir's places. Also refreshes the home screen widget.
 ///
 /// iOS cannot do this without a push server (background execution is too
 /// restricted), and the web build has no background execution at all — this
 /// is Android-only by platform reality, not by choice.
-@pragma('vm:entry-point')
-void rainCheckDispatcher() {
-  Workmanager().executeTask((_, __) async {
-    try {
-      await runRainCheck();
-    } catch (_) {
-      // Never crash the worker; next run will try again.
-    }
-    return true;
-  });
-}
+///
+/// The Workmanager entry point lives in background_dispatcher.dart
+/// (atmosDispatcher), which routes here or to runAlertCheck().
 
 const _channel = AndroidNotificationChannel(
   'rain_nowcast',
@@ -50,6 +42,14 @@ Future<void> runRainCheck() async {
     }
   }
   if (places.isEmpty) return;
+
+  // Keep the home screen widget fresh from the background too.
+  try {
+    final first = places.first;
+    final wd = await WeatherService().fetch(first);
+    final imp = prefs.getBool('imperial') ?? true;
+    await updateAtmosWidget(wd, first.name, imp);
+  } catch (_) {}
 
   // One notification per 6 hours so a passing shower doesn't spam.
   final lastNotify = prefs.getInt('lastRainNotifyMs') ?? 0;
