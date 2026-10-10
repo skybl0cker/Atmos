@@ -46,7 +46,7 @@ class RadarCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _RadarPreview(key: ValueKey(place.key), place: place),
+            RadarPreview(key: ValueKey(place.key), place: place),
             const SizedBox(height: 10),
             const Row(
               children: [
@@ -68,15 +68,15 @@ class RadarCard extends StatelessWidget {
 
 /// A small, non-interactive snapshot of the current radar frame — the "now"
 /// picture. Tapping anywhere on the card opens the full radar screen.
-class _RadarPreview extends StatefulWidget {
+class RadarPreview extends StatefulWidget {
   final Place place;
-  const _RadarPreview({super.key, required this.place});
+  const RadarPreview({super.key, required this.place});
 
   @override
-  State<_RadarPreview> createState() => _RadarPreviewState();
+  State<RadarPreview> createState() => RadarPreviewState();
 }
 
-class _RadarPreviewState extends State<_RadarPreview> {
+class RadarPreviewState extends State<RadarPreview> {
   RadarFrame? _frame;
   bool _failed = false;
 

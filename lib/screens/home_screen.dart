@@ -1,31 +1,35 @@
-import 'dart:math' as math;
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../models/weather.dart';
+import '../services/severe_event_service.dart';
 import '../state/app_state.dart';
+import '../utils/aqi.dart';
 import '../utils/haptics.dart';
 import '../utils/weather_codes.dart';
 import '../widgets/air_quality_card.dart';
-import '../widgets/daily_list.dart';
-import '../widgets/alert_banner.dart';
 import '../widgets/app_drawer.dart';
-import '../widgets/glass_card.dart';
 import '../widgets/aurora_background.dart';
+import '../widgets/daily_list.dart';
 import '../widgets/radar_card.dart';
 import '../widgets/radio_card.dart';
+import 'event_screen.dart';
+import 'forecast_screen.dart';
+import 'radar_screen.dart';
 import 'search_screen.dart';
 
 const _white70 = Colors.white70;
 const _white = Colors.white;
 
+/// Bento home: a grid of live tiles over the aurora. Tapping a tile dives
+/// into its full screen. No tab bar — navigation is by tile.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final SevereEvent? event;
+  const HomeScreen({super.key, this.event});
 
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
-
     return AuroraBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -43,7 +47,6 @@ class HomeScreen extends StatelessWidget {
       foregroundColor: _white,
       elevation: 0,
       scrolledUnderElevation: 0,
-      centerTitle: true,
       leading: Builder(
         builder: (ctx) => IconButton(
           icon: const Icon(Icons.menu),
@@ -51,16 +54,20 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       title: p == null
-          ? null
+          ? const Text('Atmos',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800))
           : Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(p.name,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
                 if (s.data != null)
                   Text(DateFormat.jm().format(s.data!.current.time),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                      style:
+                          const TextStyle(fontSize: 12, color: _white70)),
               ],
             ),
       actions: [
@@ -88,30 +95,12 @@ class HomeScreen extends StatelessWidget {
       if (s.loading) {
         return const Center(child: CircularProgressIndicator(color: _white));
       }
-      if (s.error != null) {
-        return _Message(
-          icon: Icons.cloud_off,
-          text: s.error!,
-          actions: [
-            FilledButton(
-              onPressed: s.selected == null ? s.useMyLocation : s.refresh,
-              child: const Text('Try again'),
-            ),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: _white),
-              onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const SearchScreen())),
-              child: const Text('Search for a city'),
-            ),
-          ],
-        );
-      }
       return _Message(
-        icon: Icons.wb_sunny_outlined,
-        text: 'Welcome to Atmos',
+        icon: Icons.cloud_off,
+        text: s.error ?? 'Welcome to Atmos',
         actions: [
           FilledButton.icon(
-            onPressed: s.useMyLocation,
+            onPressed: s.selected == null ? s.useMyLocation : s.refresh,
             icon: const Icon(Icons.my_location),
             label: const Text('Use my location'),
           ),
@@ -126,40 +115,71 @@ class HomeScreen extends StatelessWidget {
       );
     }
 
-    return Column(
-      children: [
-        if (s.loading)
-          const LinearProgressIndicator(
-              minHeight: 2, color: _white, backgroundColor: Colors.transparent),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: s.refresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-              children: [
-                if (s.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text('${s.error} Showing last update.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.amberAccent)),
-                  ),
-                const AlertBanner(),
-                const _Hero(),
-                const _HourlyRow(),
-                const SizedBox(height: 14),
-                const _TrendCard(),
-                const DailyList(title: '7-day forecast'),
-                const AirQualityCard(),
-                const RadarCard(),
-                const RadioCard(),
-                const _DetailsGrid(),
-              ],
+    return RefreshIndicator(
+      onRefresh: s.refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 32),
+        children: [
+          if (s.error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('${s.error} Showing last update.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.amberAccent)),
             ),
+          if (s.loading)
+            const LinearProgressIndicator(
+                minHeight: 2,
+                color: _white,
+                backgroundColor: Colors.transparent),
+          const _HeroTile(),
+          const SizedBox(height: 12),
+          _RadarTile(place: s.selected!),
+          const SizedBox(height: 12),
+          const _HourlyTile(),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _EventTile(event: event)),
+              const SizedBox(width: 12),
+              const Expanded(child: _AirTile()),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          const _ForecastTile(),
+          const SizedBox(height: 12),
+          const _DetailsBento(),
+          const SizedBox(height: 12),
+          const RadioCard(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Frosted bento tile. Tapping dives into [destination].
+class _BentoTile extends StatelessWidget {
+  final Widget child;
+  final Widget? destination;
+  final String? semanticLabel;
+  const _BentoTile({required this.child, this.destination, this.semanticLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = FrostPanel(
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.all(16),
+      child: child,
+    );
+    if (destination == null) return tile;
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => destination!),
+      ),
+      child: tile,
     );
   }
 }
@@ -168,7 +188,8 @@ class _Message extends StatelessWidget {
   final IconData icon;
   final String text;
   final List<Widget> actions;
-  const _Message({required this.icon, required this.text, required this.actions});
+  const _Message(
+      {required this.icon, required this.text, required this.actions});
 
   @override
   Widget build(BuildContext context) {
@@ -178,14 +199,14 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: _white),
+            Icon(icon, size: 48, color: _white70),
             const SizedBox(height: 16),
             Text(text,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: _white, fontSize: 18)),
-            const SizedBox(height: 24),
-            for (final a in actions)
-              Padding(padding: const EdgeInsets.only(bottom: 10), child: a),
+                style: const TextStyle(color: _white, fontSize: 16)),
+            const SizedBox(height: 20),
+            Wrap(spacing: 12, runSpacing: 12, alignment: WrapAlignment.center,
+                children: actions),
           ],
         ),
       ),
@@ -193,21 +214,19 @@ class _Message extends StatelessWidget {
   }
 }
 
-class _Hero extends StatelessWidget {
-  const _Hero();
+/// Big hero tile: current temp, condition, high/low.
+class _HeroTile extends StatelessWidget {
+  const _HeroTile();
 
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
     final c = s.data!.current;
     final today = s.data!.daily.first;
-    final fmt = DateFormat.jm();
-
     final raining = isRainCode(c.code);
     final startIn = s.data!.rainStartsIn;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return _BentoTile(
       child: Column(
         children: [
           Row(
@@ -217,7 +236,7 @@ class _Hero extends StatelessWidget {
                 const _RainPulse(),
                 const SizedBox(width: 8),
               ],
-              Icon(iconFor(c.code, day: c.isDay), size: 20, color: _white),
+              Icon(iconFor(c.code, day: c.isDay), size: 22, color: _white),
               const SizedBox(width: 8),
               Text(describe(c.code),
                   style: const TextStyle(
@@ -228,52 +247,298 @@ class _Hero extends StatelessWidget {
             const SizedBox(height: 8),
             _NowcastChip(startIn: startIn),
           ],
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
+          Text(s.temp(c.tempC).replaceAll('°', ''),
+              style: const TextStyle(
+                  fontSize: 96, fontWeight: FontWeight.w200, color: _white, height: 1.0)),
+          Text('Feels like ${s.temp(c.feelsC)}',
+              style: const TextStyle(color: _white70, fontSize: 14)),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.arrow_upward, size: 14, color: _white70),
               Text(' ${s.temp(today.maxC)}   ',
-                  style: const TextStyle(color: _white, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(
+                      color: _white, fontWeight: FontWeight.w600)),
               const Icon(Icons.arrow_downward, size: 14, color: _white70),
               Text(' ${s.temp(today.minC)}',
-                  style: const TextStyle(color: _white, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Text(s.temp(c.tempC).replaceAll('°', ''),
                   style: const TextStyle(
-                      fontSize: 104,
-                      fontWeight: FontWeight.w200,
-                      color: _white,
-                      height: 1.05)),
-              const Positioned(
-                right: 0,
-                top: 18,
-                child: Text('°',
-                    style: TextStyle(fontSize: 44, color: _white, fontWeight: FontWeight.w200)),
-              ),
+                      color: _white, fontWeight: FontWeight.w600)),
             ],
           ),
-          Text('Feels like ${s.temp(c.feelsC)}',
-              style: const TextStyle(color: _white70, fontSize: 14)),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.wb_twilight, size: 16, color: _white70),
-              const SizedBox(width: 4),
-              Text(fmt.format(today.sunrise),
-                  style: const TextStyle(color: _white70, fontSize: 13)),
-              const SizedBox(width: 18),
-              const Icon(Icons.nights_stay_outlined, size: 16, color: _white70),
-              const SizedBox(width: 4),
-              Text(fmt.format(today.sunset),
-                  style: const TextStyle(color: _white70, fontSize: 13)),
-            ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Live radar tile — taps through to the full radar screen.
+class _RadarTile extends StatelessWidget {
+  final Place place;
+  const _RadarTile({required this.place});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.read<AppState>();
+    return _BentoTile(
+      destination: RadarScreen(
+        place: place,
+        minutely: s.data?.minutely ?? const [],
+        windKmh: s.data?.steeringWindKmh ?? 0,
+        windDir: s.data?.steeringWindDir ?? 0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.radar, size: 15, color: _white70),
+            SizedBox(width: 6),
+            Text('RADAR',
+                style: TextStyle(
+                    fontSize: 12,
+                    letterSpacing: 1.2,
+                    color: _white70,
+                    fontWeight: FontWeight.w600)),
+            Spacer(),
+            Icon(Icons.arrow_forward_ios, size: 14, color: _white70),
+          ]),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: SizedBox(
+                height: 150,
+                child: RadarPreview(
+                    key: ValueKey(place.key), place: place)),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HourlyTile extends StatelessWidget {
+  const _HourlyTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _BentoTile(child: _HourlyStrip());
+  }
+}
+
+class _HourlyStrip extends StatelessWidget {
+  const _HourlyStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
+    final hours = s.data!.hourly.take(12).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(children: [
+          Icon(Icons.schedule, size: 15, color: _white70),
+          SizedBox(width: 6),
+          Text('HOURLY',
+              style: TextStyle(
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                  color: _white70,
+                  fontWeight: FontWeight.w600)),
+        ]),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: hours.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final h = hours[i];
+              return Container(
+                width: 58,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(i == 0 ? 40 : 16),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(i == 0 ? 'Now' : DateFormat('h a').format(h.time),
+                        style:
+                            const TextStyle(color: _white70, fontSize: 11)),
+                    Icon(iconFor(h.code, day: isDayHour(h.time)),
+                        color: _white, size: 22),
+                    Text(s.temp(h.tempC),
+                        style: const TextStyle(
+                            color: _white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Severe-weather tile: live threat or all-clear. Taps to EventScreen.
+class _EventTile extends StatelessWidget {
+  final SevereEvent? event;
+  const _EventTile({this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final e = event;
+    final active = e != null && e.kind != SevereKind.none;
+    return _BentoTile(
+      destination: const EventScreen(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(
+                active ? e.tabIcon : Icons.check_circle_outline,
+                size: 15,
+                color: active
+                    ? (e.color ?? Colors.redAccent)
+                    : Colors.greenAccent),
+            const SizedBox(width: 6),
+            const Text('SEVERE WX',
+                style: TextStyle(
+                    fontSize: 12,
+                    letterSpacing: 1.2,
+                    color: _white70,
+                    fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 10),
+          Text(active ? e.tabLabel : 'All clear',
+              style: const TextStyle(
+                  color: _white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(active ? 'Tap for details' : 'No active threats',
+              style: const TextStyle(color: _white70, fontSize: 12)),
+          const SizedBox(height: 26),
+        ],
+      ),
+    );
+  }
+}
+
+class _AirTile extends StatelessWidget {
+  const _AirTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
+    final air = s.data?.air;
+    final lvl = air == null ? null : aqiLevel(air.usAqi);
+    return _BentoTile(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.eco_outlined, size: 15, color: _white70),
+            SizedBox(width: 6),
+            Text('AIR',
+                style: TextStyle(
+                    fontSize: 12,
+                    letterSpacing: 1.2,
+                    color: _white70,
+                    fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 10),
+          Text(air == null ? '—' : '${air.usAqi.round()}',
+              style: const TextStyle(
+                  color: _white, fontSize: 32, fontWeight: FontWeight.w600)),
+          Text(lvl?.label ?? 'No data',
+              style: const TextStyle(color: _white70, fontSize: 12)),
+          const SizedBox(height: 26),
+        ],
+      ),
+    );
+  }
+}
+
+/// 7-day tile — taps through to the full 14-day forecast.
+class _ForecastTile extends StatelessWidget {
+  const _ForecastTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _BentoTile(
+      destination: ForecastScreen(),
+      child: DailyList(title: '7-day forecast'),
+    );
+  }
+}
+
+/// Small detail tiles in a 2-column bento grid.
+class _DetailsBento extends StatelessWidget {
+  const _DetailsBento();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
+    final c = s.data!.current;
+    final today = s.data!.daily.first;
+    final tiles = [
+      _MiniTile(Icons.water_drop_outlined, 'HUMIDITY', '${c.humidity.round()}%'),
+      _MiniTile(Icons.air, 'WIND', s.wind(c.windKmh)),
+      _MiniTile(Icons.wb_sunny_outlined, 'UV', today.uv.round().toString()),
+      _MiniTile(Icons.speed, 'PRESSURE', '${c.pressure.round()}'),
+      _MiniTile(Icons.umbrella_outlined, 'PRECIP', s.precip(c.precipMm)),
+      _MiniTile(Icons.thermostat, 'FEELS', s.temp(c.feelsC)),
+    ];
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.9,
+      children: tiles,
+    );
+  }
+}
+
+class _MiniTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  const _MiniTile(this.icon, this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return FrostPanel(
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(children: [
+            Icon(icon, size: 14, color: _white70),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 1.0,
+                    color: _white70,
+                    fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 6),
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 22, color: _white, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -286,7 +551,7 @@ class _NowcastChip extends StatelessWidget {
 
   String get label {
     final m = startIn.inMinutes;
-    if (m <= 1) return 'Rain starting now';
+    if (m < 1) return 'Rain starting now';
     if (m < 60) return 'Rain in ~$m min';
     final h = startIn.inHours;
     final rem = m % 60;
@@ -316,9 +581,6 @@ class _NowcastChip extends StatelessWidget {
   }
 }
 
-/// Visual stand-in for haptics on platforms where the Vibration API is
-/// unavailable (notably the iOS web install): a gently pulsing droplet while
-/// it is actively raining.
 class _RainPulse extends StatefulWidget {
   const _RainPulse();
 
@@ -363,180 +625,6 @@ class _RainPulseState extends State<_RainPulse>
           scale: _scale.value,
           child: const Icon(Icons.water_drop, size: 20, color: _white),
         ),
-      ),
-    );
-  }
-}
-
-class _HourlyRow extends StatelessWidget {
-  const _HourlyRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.watch<AppState>();
-    final hours = s.data!.hourly;
-    return SizedBox(
-      height: 118,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: hours.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final h = hours[i];
-          return Container(
-            width: 64,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.black.withAlpha(i == 0 ? 130 : 80),
-              borderRadius: BorderRadius.circular(18),
-              border: i == 0
-                  ? Border.all(color: Colors.white.withAlpha(90))
-                  : Border.all(color: Colors.white.withAlpha(20)),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(i == 0 ? 'Now' : DateFormat('h a').format(h.time),
-                    style: const TextStyle(color: _white70, fontSize: 12)),
-                Icon(iconFor(h.code, day: isDayHour(h.time)), color: _white, size: 24),
-                Text(s.temp(h.tempC),
-                    style: const TextStyle(
-                        color: _white, fontSize: 16, fontWeight: FontWeight.w600)),
-                Text(h.precipProb >= 20 ? '${h.precipProb}%' : ' ',
-                    style: const TextStyle(color: Color(0xFF9BE7FF), fontSize: 11)),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _TrendCard extends StatelessWidget {
-  const _TrendCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.watch<AppState>();
-    final vals = s.data!.hourly.map((h) => s.tv(h.tempC)).toList();
-    if (vals.length < 2) return const SizedBox.shrink();
-    final lo = vals.reduce(math.min);
-    final hi = vals.reduce(math.max);
-
-    return GlassCard(
-      title: '24-hour temperature',
-      icon: Icons.show_chart,
-      child: Column(
-        children: [
-          SizedBox(
-            height: 110,
-            child: LineChart(
-              LineChartData(
-                minY: lo - 2,
-                maxY: hi + 2,
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: [
-                      for (var k = 0; k < vals.length; k++) FlSpot(k.toDouble(), vals[k]),
-                    ],
-                    isCurved: true,
-                    color: _white,
-                    barWidth: 3,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: true, color: Colors.white12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Low ${lo.round()}°', style: const TextStyle(color: _white70, fontSize: 12)),
-              Text('High ${hi.round()}°', style: const TextStyle(color: _white70, fontSize: 12)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailsGrid extends StatelessWidget {
-  const _DetailsGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.watch<AppState>();
-    final c = s.data!.current;
-    final today = s.data!.daily.first;
-
-    final tiles = <_Tile>[
-      _Tile(Icons.water_drop_outlined, 'Humidity', '${c.humidity.round()}%', null),
-      _Tile(Icons.air, 'Wind', s.wind(c.windKmh), 'From ${compass(c.windDir)}'),
-      _Tile(Icons.wb_sunny_outlined, 'UV index', today.uv.round().toString(),
-          uvLabel(today.uv)),
-      _Tile(Icons.speed, 'Pressure', '${c.pressure.round()} hPa', null),
-      _Tile(Icons.umbrella_outlined, 'Precipitation', s.precip(c.precipMm),
-          '${today.precipProb}% chance today'),
-      _Tile(Icons.thermostat, 'Feels like', s.temp(c.feelsC), null),
-    ];
-
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.5,
-      children: tiles,
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final String? sub;
-  const _Tile(this.icon, this.label, this.value, this.sub);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.black.withAlpha(80),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withAlpha(30)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Icon(icon, size: 16, color: _white70),
-            const SizedBox(width: 6),
-            Text(label.toUpperCase(),
-                style: const TextStyle(
-                    fontSize: 11,
-                    letterSpacing: 0.8,
-                    color: _white70,
-                    fontWeight: FontWeight.w600)),
-          ]),
-          const Spacer(),
-          Text(value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 24, color: _white, fontWeight: FontWeight.w500)),
-          if (sub != null)
-            Text(sub!, style: const TextStyle(fontSize: 12, color: _white70)),
-        ],
       ),
     );
   }
