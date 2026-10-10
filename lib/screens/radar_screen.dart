@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
@@ -404,10 +405,20 @@ class _RadarScreenState extends State<RadarScreen> {
                         if (widget.minutely.isNotEmpty)
                           _NowcastStrip(minutely: widget.minutely),
                         const SizedBox(height: 8),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                            child: Column(
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                            child: Container(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withAlpha(26),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                    color: Colors.white.withAlpha(45)),
+                              ),
+                              child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Row(
@@ -533,7 +544,8 @@ class _RadarScreenState extends State<RadarScreen> {
                                 ),
                               ],
                             ),
-                          ),
+                              ),
+                            ),
                         ),
                       ],
                     ),

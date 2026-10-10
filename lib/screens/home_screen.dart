@@ -11,6 +11,7 @@ import '../widgets/daily_list.dart';
 import '../widgets/alert_banner.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/aurora_background.dart';
 import '../widgets/radar_card.dart';
 import '../widgets/radio_card.dart';
 import 'search_screen.dart';
@@ -25,17 +26,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF241A4D), // deep violet
-            Color(0xFF120E24), // near-black purple
-          ],
-        ),
-      ),
+    return AuroraBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         drawer: const AppDrawer(),

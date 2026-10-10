@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'aurora_background.dart';
 
+/// Titled frosted-glass card floating above the aurora.
 class GlassCard extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -16,14 +18,8 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+    return FrostPanel(
       padding: padding,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1542).withAlpha(200),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF7C4DFF).withAlpha(40)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -33,7 +29,7 @@ class GlassCard extends StatelessWidget {
             Text(title.toUpperCase(),
                 style: const TextStyle(
                     fontSize: 12,
-                    letterSpacing: 0.8,
+                    letterSpacing: 1.2,
                     color: Colors.white70,
                     fontWeight: FontWeight.w600)),
           ]),

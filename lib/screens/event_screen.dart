@@ -11,6 +11,7 @@ import '../services/severe_event_service.dart';
 import '../services/tropical_service.dart';
 import '../services/usgs_service.dart';
 import '../state/app_state.dart';
+import '../widgets/aurora_background.dart';
 import '../widgets/storm_map.dart';
 
 /// Situation room: the 4th tab. Threats are ranked by distance from the
@@ -151,17 +152,20 @@ class _EventScreenState extends State<EventScreen> {
   @override
   Widget build(BuildContext context) {
     final event = _event;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Severe Weather'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: _load,
-          ),
-        ],
-      ),
+    return AuroraBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          title: const Text('Severe Weather'),
+          actions: [
+            IconButton(
+              tooltip: 'Refresh',
+              icon: const Icon(Icons.refresh),
+              onPressed: _load,
+            ),
+          ],
+        ),
       body: event == null
           ? Center(
               child: _failed
@@ -203,6 +207,7 @@ class _EventScreenState extends State<EventScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 }
