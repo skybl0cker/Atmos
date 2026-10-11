@@ -20,7 +20,6 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   SevereEvent? _event;
   Timer? _timer;
-  DateTime? _pausedAt;
 
   @override
   void initState() {
@@ -44,19 +43,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _pausedAt = DateTime.now();
-    } else if (state == AppLifecycleState.resumed && mounted) {
-      // Refresh if the app was backgrounded for more than 5 minutes —
-      // avoids a network hit for quick app switches.
-      final away = _pausedAt == null
-          ? Duration.zero
-          : DateTime.now().difference(_pausedAt!);
-      if (away > const Duration(minutes: 5)) {
-        context.read<AppState>().refresh();
-        _refreshEvent();
-      }
-      _pausedAt = null;
+    if (state == AppLifecycleState.resumed && mounted) {
+      // Refresh every time the app comes back to the foreground —
+      // Sir asked for fresh data each time he returns to it.
+      context.read<AppState>().refresh();
+      _refreshEvent();
     }
   }
 

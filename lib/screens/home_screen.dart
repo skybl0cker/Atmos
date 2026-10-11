@@ -76,23 +76,29 @@ class HomeScreen extends StatelessWidget {
             bottom: false,
             child: RefreshIndicator(
               onRefresh: () => context.read<AppState>().refresh(),
-              child: SingleChildScrollView(
+              // CustomScrollView + SliverFillRemaining: the fill sliver hands
+              // its child bounded height constraints, so the Spacer below can
+              // push the bottom card to the viewport bottom. (A Spacer inside
+              // a plain Column in a SingleChildScrollView gets unbounded
+              // height, throws at layout, and collapses — stranding the card
+              // mid-screen with bare background below it.)
+              child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.sizeOf(context).height -
-                        MediaQuery.paddingOf(context).top,
+                slivers: [
+                  SliverToBoxAdapter(child: _topBar(context, s, onBg)),
+                  if (d != null)
+                    SliverToBoxAdapter(child: _hero(s, onBg, onBgSoft)),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Spacer(),
+                        _bottomCard(context, s, event),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _topBar(context, s, onBg),
-                      if (d != null) _hero(s, onBg, onBgSoft),
-                      const Spacer(),
-                      _bottomCard(context, s, event),
-                    ],
-                  ),
-                ),
+                ],
               ),
             ),
           ),
