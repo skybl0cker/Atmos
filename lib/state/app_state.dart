@@ -62,11 +62,12 @@ class AppState extends ChangeNotifier {
       unawaited(refresh());
     }
     // Upgrade path: places stored before reverse-geocoding existed are still
-    // named "My location". Resolve the real name once, in the background,
-    // so the header, notifications, and widget read e.g. "Knoxville, TN".
+    // named "My location", and early builds could store junk like
+    // "District 6". Resolve the real name once, in the background, so the
+    // header, notifications, and widget read e.g. "Hardin Valley, TN".
     if (selected != null &&
         selected!.isCurrent &&
-        selected!.name == LocationService.placeholderName) {
+        LocationService.isPlaceholderName(selected!.name)) {
       unawaited(_refreshCurrentPlaceName());
     }
     // NOTE: do NOT call useMyLocation() here — init() runs before runApp(),
@@ -86,16 +87,17 @@ class AppState extends ChangeNotifier {
   bool _locationRequested = false;
 
   /// One-time upgrade for current-location places saved under the old
-  /// "My location" placeholder name. Silent; never surfaces an error.
+  /// "My location" placeholder name (or junk like "District 6").
+  /// Silent; never surfaces an error.
   Future<void> _refreshCurrentPlaceName() async {
     final p = selected;
     if (p == null ||
         !p.isCurrent ||
-        p.name != LocationService.placeholderName) {
+        !LocationService.isPlaceholderName(p.name)) {
       return;
     }
     final name = await _location.resolvePlaceName(p.lat, p.lon);
-    if (name == LocationService.placeholderName || name == p.name) return;
+    if (LocationService.isPlaceholderName(name) || name == p.name) return;
     selected = p.copyWith(name: name);
     _prefs.setString('last', jsonEncode(selected!.toJson()));
     notifyListeners();
