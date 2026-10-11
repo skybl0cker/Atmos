@@ -21,6 +21,23 @@ class Place {
 
   String get key => '${lat.toStringAsFixed(2)},${lon.toStringAsFixed(2)}';
 
+  Place copyWith({
+    String? name,
+    String? region,
+    String? country,
+    double? lat,
+    double? lon,
+    bool? isCurrent,
+  }) =>
+      Place(
+        name: name ?? this.name,
+        region: region ?? this.region,
+        country: country ?? this.country,
+        lat: lat ?? this.lat,
+        lon: lon ?? this.lon,
+        isCurrent: isCurrent ?? this.isCurrent,
+      );
+
   String get subtitle => [region, country]
       .where((s) => s != null && s.isNotEmpty)
       .join(', ');
