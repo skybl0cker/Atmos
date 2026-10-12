@@ -6,5 +6,8 @@ import '../models/alert.dart';
 class NotificationService {
   Future<void> init() async {}
 
+  /// Web stub: no OS-level notifications, so this is a no-op.
+  Future<void> requestPermission() async {}
+
   Future<void> showAlert(WeatherAlert a) async {}
 }

@@ -42,6 +42,10 @@ class AppState extends ChangeNotifier {
     _seenAlertIds = (_prefs.getStringList('seenAlerts') ?? []).toSet();
 
     if (notificationsEnabled) {
+      // Plugin init only — the notification permission dialog is requested
+      // from ensureLocation(), after the location prompt is answered.
+      // Android shows a single system permission dialog at a time; asking
+      // for both at startup raced and silently dropped the location one.
       unawaited(_notifications.init());
     }
 
@@ -77,11 +81,19 @@ class AppState extends ChangeNotifier {
 
   /// Called by the home screen after the first frame. If there is no place
   /// selected yet (fresh install), this requests location permission and
-  /// loads weather for the current position.
+  /// loads weather for the current position — then asks for notification
+  /// permission, so the two system dialogs never race (Android drops the
+  /// second of two simultaneous permission requests).
   Future<void> ensureLocation() async {
-    if (selected != null || _locationRequested) return;
+    if (selected != null || _locationRequested) {
+      // Not a fresh install (or already asked): still offer the
+      // notification permission if the OS hasn't recorded a decision.
+      if (notificationsEnabled) unawaited(_notifications.requestPermission());
+      return;
+    }
     _locationRequested = true;
     await useMyLocation();
+    if (notificationsEnabled) unawaited(_notifications.requestPermission());
   }
 
   bool _locationRequested = false;
