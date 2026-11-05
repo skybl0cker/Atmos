@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/alert.dart';
 import '../models/weather.dart';
 import '../services/alerts_service.dart';
 import '../services/location_service.dart';
+import '../services/nearby_threats.dart';
 import '../services/notification_service.dart';
 import '../services/seen_alerts.dart';
 import '../services/weather_service.dart';
@@ -131,8 +134,9 @@ class AppState extends ChangeNotifier {
   String temp(double c) => '${tv(c).round()}°';
   String wind(double kmh) =>
       imperial ? '${(kmh * 0.621371).round()} mph' : '${kmh.round()} km/h';
-  String precip(double mm) =>
-      imperial ? '${(mm / 25.4).toStringAsFixed(2)} in' : '${mm.toStringAsFixed(1)} mm';
+  String precip(double mm) => imperial
+      ? '${(mm / 25.4).toStringAsFixed(2)} in'
+      : '${mm.toStringAsFixed(1)} mm';
 
   // ---- place selection ----------------------------------------------------
 
@@ -143,6 +147,7 @@ class AppState extends ChangeNotifier {
     data = _cache[p.key];
     error = null;
     alerts = [];
+    nearby = NearbyThreats.none;
     _prefs.setString('last', jsonEncode(p.toJson()));
     notifyListeners();
     unawaited(refresh());
@@ -169,6 +174,9 @@ class AppState extends ChangeNotifier {
     loading = true;
     error = null;
     notifyListeners();
+    // Nearby hurricanes / quakes load alongside, but never hold up (or fail)
+    // the weather.
+    unawaited(refreshNearby());
     try {
       final results = await Future.wait([
         _weather.fetchRaw(p),
@@ -236,7 +244,10 @@ class AppState extends ChangeNotifier {
   }
 
   void _persistSaved() {
-    _prefs.setString('saved', jsonEncode(saved.map((p) => p.toJson()).toList()));
+    _prefs.setString(
+      'saved',
+      jsonEncode(saved.map((p) => p.toJson()).toList()),
+    );
   }
 
   // ---- settings -----------------------------------------------------------
@@ -250,6 +261,32 @@ class AppState extends ChangeNotifier {
     if (d != null && p != null) {
       unawaited(updateAtmosWidget(d, p.name, imperial));
     }
+    notifyListeners();
+  }
+
+  // ---- nearby threats -------------------------------------------------------
+
+  /// Tropical cyclones within 500 mi and M5+ quakes within 300 mi of the
+  /// place on screen. Empty most of the time — that's the point.
+  NearbyThreats nearby = NearbyThreats.none;
+  bool loadingNearby = false;
+
+  /// Something worth a badge on the Alerts button: an NWS alert for this
+  /// place, or a nearby storm / quake.
+  bool get hasAlerts => alerts.isNotEmpty || !nearby.isEmpty;
+
+  Future<void> refreshNearby() async {
+    final p = selected;
+    if (p == null) return;
+    loadingNearby = true;
+    try {
+      final n = await NearbyThreats.forPlace(p.lat, p.lon);
+      // Ignore results for a place the user has already left.
+      if (selected?.key == p.key) nearby = n;
+    } catch (_) {
+      // Keep whatever we had.
+    }
+    loadingNearby = false;
     notifyListeners();
   }
 
@@ -289,11 +326,14 @@ class AppState extends ChangeNotifier {
       final j = jsonDecode(s) as Map<String, dynamic>;
       if (j['place'] != p.key) return;
       final d = WeatherService.parse(
-          j['forecast'] as String, j['air'] as String?);
+        j['forecast'] as String,
+        j['air'] as String?,
+      );
       _cache[p.key] = d;
       data = d;
-      _updatedAt[p.key] =
-          DateTime.fromMillisecondsSinceEpoch((j['at'] as num).toInt());
+      _updatedAt[p.key] = DateTime.fromMillisecondsSinceEpoch(
+        (j['at'] as num).toInt(),
+      );
     } catch (_) {
       // Corrupt or outdated format: ignore and fetch fresh.
     }
@@ -358,8 +398,10 @@ class AppState extends ChangeNotifier {
   /// while the app stays open.
   void _startSunClock() {
     _sunClock?.cancel();
-    _sunClock =
-        Timer.periodic(const Duration(minutes: 1), (_) => recheckDaytime());
+    _sunClock = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => recheckDaytime(),
+    );
   }
 
   /// Re-evaluates day/night now; notifies only if it flipped.

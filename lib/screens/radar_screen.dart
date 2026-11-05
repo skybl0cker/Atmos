@@ -1,9 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+
 import '../models/weather.dart';
 import '../state/app_state.dart';
 import '../services/hrrr_service.dart';
@@ -24,10 +26,26 @@ const _baseFrameMs = 600;
 
 /// Darkens the light OpenStreetMap basemap so radar colors stand out.
 const _darkTiles = ColorFilter.matrix(<double>[
-  -0.15, -0.295, -0.055, 0, 149.5,
-  -0.15, -0.295, -0.055, 0, 154.5,
-  -0.15, -0.295, -0.055, 0, 165.5,
-  0, 0, 0, 1, 0,
+  -0.15,
+  -0.295,
+  -0.055,
+  0,
+  149.5,
+  -0.15,
+  -0.295,
+  -0.055,
+  0,
+  154.5,
+  -0.15,
+  -0.295,
+  -0.055,
+  0,
+  165.5,
+  0,
+  0,
+  0,
+  1,
+  0,
 ]);
 const _noFilter = ColorFilter.mode(Colors.transparent, BlendMode.dst);
 
@@ -55,11 +73,11 @@ class _RadarScreenState extends State<RadarScreen> {
 
   late int _index = 0;
   bool _playing = false;
+
   /// Map style follows day/night at the place (light by day, dark at
   /// night); tapping the toggle overrides it for this visit.
   bool? _darkOverride;
-  bool get _dark =>
-      _darkOverride ?? !context.read<AppState>().isDaytime;
+  bool get _dark => _darkOverride ?? !context.read<AppState>().isDaytime;
   double _opacity = 0.8;
   double _zoom = _startZoom;
   double _speed = 1.0;
@@ -84,7 +102,9 @@ class _RadarScreenState extends State<RadarScreen> {
       // HRRR simulated reflectivity: the single unified "future radar"
       // model, from the earliest available frame out to +6 h.
       frames = RadarService.addHrrrForecast(
-          frames, await HrrrService.forecastFrames());
+        frames,
+        await HrrrService.forecastFrames(),
+      );
       if (!mounted) return;
       setState(() {
         _frames = frames;
@@ -131,9 +151,9 @@ class _RadarScreenState extends State<RadarScreen> {
   }
 
   void _show(int i) => setState(() {
-        _index = i;
-        _visited.add(i);
-      });
+    _index = i;
+    _visited.add(i);
+  });
 
   void _step(int d) => _show((_index + d) % _frames.length);
 
@@ -154,7 +174,9 @@ class _RadarScreenState extends State<RadarScreen> {
     }
     setState(() => _playing = true);
     _timer = Timer.periodic(
-        Duration(milliseconds: (_baseFrameMs / _speed).round()), (_) => _tick());
+      Duration(milliseconds: (_baseFrameMs / _speed).round()),
+      (_) => _tick(),
+    );
   }
 
   void _setSpeed(double v) {
@@ -162,8 +184,9 @@ class _RadarScreenState extends State<RadarScreen> {
     if (_playing) {
       _timer?.cancel();
       _timer = Timer.periodic(
-          Duration(milliseconds: (_baseFrameMs / _speed).round()),
-          (_) => _tick());
+        Duration(milliseconds: (_baseFrameMs / _speed).round()),
+        (_) => _tick(),
+      );
     }
   }
 
@@ -209,9 +232,10 @@ class _RadarScreenState extends State<RadarScreen> {
                   borderRadius: BorderRadius.circular(21),
                   boxShadow: const [
                     BoxShadow(
-                        color: Color(0x33000000),
-                        blurRadius: 12,
-                        offset: Offset(0, 4)),
+                      color: Color(0x33000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
                   ],
                 ),
                 child: Row(
@@ -219,13 +243,16 @@ class _RadarScreenState extends State<RadarScreen> {
                     const Icon(Icons.radar, color: _accent, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('Radar · ${p.name}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: pal.ink,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500)),
+                      child: Text(
+                        'Radar · ${p.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: pal.ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -233,7 +260,9 @@ class _RadarScreenState extends State<RadarScreen> {
             ),
             const SizedBox(width: 8),
             RoundIconButton(
-              icon: _dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              icon: _dark
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined,
               tooltip: _dark ? 'Light map' : 'Dark map',
               solid: true,
               onTap: () => setState(() => _darkOverride = !_dark),
@@ -295,8 +324,7 @@ class _RadarScreenState extends State<RadarScreen> {
       );
     }
     if (_frames.isEmpty) {
-      return const Center(
-          child: CircularProgressIndicator(color: _accent));
+      return const Center(child: CircularProgressIndicator(color: _accent));
     }
 
     final sliders = SliderTheme.of(context).copyWith(
@@ -353,30 +381,28 @@ class _RadarScreenState extends State<RadarScreen> {
                         maxNativeZoom: 7,
                       ),
               ),
-            MarkerLayer(markers: [
-              Marker(
-                point: center,
-                width: 24,
-                height: 24,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _accent,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 3.5),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black38, blurRadius: 8)
-                    ],
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: center,
+                  width: 24,
+                  height: 24,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _accent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3.5),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black38, blurRadius: 8),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ],
         ),
-        Positioned(
-          left: gutter,
-          top: top + 62,
-          child: const _Legend(),
-        ),
+        Positioned(left: gutter, top: top + 62, child: const _Legend()),
         if (!_ready)
           Positioned(
             top: top + 56,
@@ -421,9 +447,10 @@ class _RadarScreenState extends State<RadarScreen> {
                       : const BorderRadius.vertical(top: Radius.circular(32)),
                   boxShadow: [
                     BoxShadow(
-                        color: const Color(0x33000000),
-                        blurRadius: 24,
-                        offset: Offset(0, wide ? 8 : -6)),
+                      color: const Color(0x33000000),
+                      blurRadius: 24,
+                      offset: Offset(0, wide ? 8 : -6),
+                    ),
                   ],
                 ),
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 6 + bottom),
@@ -437,31 +464,40 @@ class _RadarScreenState extends State<RadarScreen> {
                     ],
                     Row(
                       children: [
-                        Text(f.label,
-                            style: TextStyle(
-                                color: pal.ink,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600)),
+                        Text(
+                          f.label,
+                          style: TextStyle(
+                            color: pal.ink,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         if (f.isForecast) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: (f.isModel
-                                      ? const Color(0xFFB36BD1)
-                                      : const Color(0xFF3F8CFF))
-                                  .withAlpha(34),
+                              color:
+                                  (f.isModel
+                                          ? const Color(0xFFB36BD1)
+                                          : const Color(0xFF3F8CFF))
+                                      .withAlpha(34),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(_frameBadge(f),
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
-                                    color: f.isModel
-                                        ? const Color(0xFFB36BD1)
-                                        : const Color(0xFF3F8CFF))),
+                            child: Text(
+                              _frameBadge(f),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                                color: f.isModel
+                                    ? const Color(0xFFB36BD1)
+                                    : const Color(0xFF3F8CFF),
+                              ),
+                            ),
                           ),
                         ],
                         const Spacer(),
@@ -484,8 +520,10 @@ class _RadarScreenState extends State<RadarScreen> {
                       children: [
                         IconButton(
                           tooltip: 'Previous frame',
-                          icon: Icon(Icons.skip_previous_rounded,
-                              color: pal.ink),
+                          icon: Icon(
+                            Icons.skip_previous_rounded,
+                            color: pal.ink,
+                          ),
                           onPressed: () => _step(-1),
                         ),
                         IconButton.filled(
@@ -495,15 +533,16 @@ class _RadarScreenState extends State<RadarScreen> {
                             foregroundColor: Colors.white,
                             disabledBackgroundColor: pal.track,
                           ),
-                          icon: Icon(_playing
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded),
+                          icon: Icon(
+                            _playing
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                          ),
                           onPressed: _ready ? _togglePlay : null,
                         ),
                         IconButton(
                           tooltip: 'Next frame',
-                          icon:
-                              Icon(Icons.skip_next_rounded, color: pal.ink),
+                          icon: Icon(Icons.skip_next_rounded, color: pal.ink),
                           onPressed: () => _step(1),
                         ),
                         PopupMenuButton<double>(
@@ -527,7 +566,9 @@ class _RadarScreenState extends State<RadarScreen> {
                           child: Container(
                             margin: const EdgeInsets.only(left: 2),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: pal.card,
                               borderRadius: BorderRadius.circular(12),
@@ -559,8 +600,10 @@ class _RadarScreenState extends State<RadarScreen> {
                       ],
                     ),
                     Center(
-                      child: Text('© OpenStreetMap · Radar: RainViewer',
-                          style: TextStyle(color: pal.soft, fontSize: 10)),
+                      child: Text(
+                        '© OpenStreetMap · Radar: RainViewer',
+                        style: TextStyle(color: pal.soft, fontSize: 10),
+                      ),
                     ),
                   ],
                 ),
@@ -586,15 +629,23 @@ class _Legend extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x22000000), blurRadius: 10, offset: Offset(0, 3)),
+            color: Color(0x22000000),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Intensity',
-              style: TextStyle(
-                  color: pal.ink, fontSize: 11, fontWeight: FontWeight.w600)),
+          Text(
+            'Intensity',
+            style: TextStyle(
+              color: pal.ink,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(width: 8),
           for (final s in radarLegendStops)
             Padding(
@@ -611,8 +662,10 @@ class _Legend extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 3),
-                  Text(s.label,
-                      style: TextStyle(color: pal.soft, fontSize: 10)),
+                  Text(
+                    s.label,
+                    style: TextStyle(color: pal.soft, fontSize: 10),
+                  ),
                 ],
               ),
             ),

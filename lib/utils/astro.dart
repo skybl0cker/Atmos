@@ -31,13 +31,13 @@ class MoonPhase {
 
   /// Compact name that fits a small card ("Crescent moon").
   String get shortName => switch (name) {
-        'Waxing Crescent' || 'Waning Crescent' => 'Crescent moon',
-        'Waxing Gibbous' || 'Waning Gibbous' => 'Gibbous moon',
-        'New Moon' => 'New moon',
-        'Full Moon' => 'Full moon',
-        'First Quarter' => 'First quarter',
-        _ => 'Last quarter',
-      };
+    'Waxing Crescent' || 'Waning Crescent' => 'Crescent moon',
+    'Waxing Gibbous' || 'Waning Gibbous' => 'Gibbous moon',
+    'New Moon' => 'New moon',
+    'Full Moon' => 'Full moon',
+    'First Quarter' => 'First quarter',
+    _ => 'Last quarter',
+  };
 
   /// Days until the next full moon (0 when it is full now).
   int get daysToFull {

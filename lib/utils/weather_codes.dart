@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 String describe(int code) {
   switch (code) {
     case 0:
@@ -54,19 +52,6 @@ String describe(int code) {
   }
 }
 
-IconData iconFor(int code, {bool day = true}) {
-  if (code == 0 || code == 1) return day ? Icons.wb_sunny : Icons.nightlight_round;
-  if (code == 2) return day ? Icons.wb_cloudy : Icons.cloud;
-  if (code == 3) return Icons.cloud;
-  if (code == 45 || code == 48) return Icons.blur_on;
-  if (code >= 51 && code <= 67) return Icons.water_drop;
-  if (code >= 71 && code <= 77) return Icons.ac_unit;
-  if (code >= 80 && code <= 82) return Icons.water_drop;
-  if (code == 85 || code == 86) return Icons.ac_unit;
-  if (code >= 95) return Icons.thunderstorm;
-  return Icons.cloud;
-}
-
 /// Rough daytime test (6 AM – 8 PM) for when real sun times are unknown.
 /// Prefer [isDaylightAt], which uses the forecast's sunrise and sunset.
 bool isDayHour(DateTime t) => t.hour >= 6 && t.hour < 20;
@@ -75,7 +60,9 @@ bool isDayHour(DateTime t) => t.hour >= 6 && t.hour < 20;
 /// sun times for that calendar day. Falls back to [isDayHour] when the day
 /// isn't in the forecast.
 bool isDaylightAt(
-    DateTime t, Iterable<({DateTime sunrise, DateTime sunset})> days) {
+  DateTime t,
+  Iterable<({DateTime sunrise, DateTime sunset})> days,
+) {
   for (final d in days) {
     if (d.sunrise.year == t.year &&
         d.sunrise.month == t.month &&
@@ -117,26 +104,6 @@ int synthesizeCode(int code, double precipMmPerHour) {
   if (precipMmPerHour <= 2.5) return 61; // light rain
   if (precipMmPerHour <= 7.5) return 63; // moderate rain
   return 65; // heavy rain
-}
-
-List<Color> gradientFor(int code, bool day) {
-  if (code >= 95) return const [Color(0xFF232526), Color(0xFF414345)];
-  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
-    return day
-        ? const [Color(0xFF4B6CB7), Color(0xFF182848)]
-        : const [Color(0xFF141E30), Color(0xFF243B55)];
-  }
-  if ((code >= 71 && code <= 77) || code == 85 || code == 86) {
-    return const [Color(0xFF8DA5C4), Color(0xFF5B7590)];
-  }
-  if (code == 45 || code == 48 || code == 3) {
-    return day
-        ? const [Color(0xFF757F9A), Color(0xFFA9B4C8)]
-        : const [Color(0xFF2C3E50), Color(0xFF4B5B6B)];
-  }
-  return day
-      ? const [Color(0xFF2E8BFF), Color(0xFF87CEFA)]
-      : const [Color(0xFF0F2027), Color(0xFF2C5364)];
 }
 
 String compass(int deg) {

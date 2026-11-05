@@ -17,16 +17,20 @@ String weatherSummary(WeatherData d, String Function(double c) fmtTemp) {
   String kindFor(int code) => code >= 95
       ? 'Storms'
       : isSnowCode(code)
-          ? 'Snow'
-          : 'Rain';
+      ? 'Snow'
+      : 'Rain';
   final wetNow = isRainCode(c.code) || isSnowCode(c.code) || c.code >= 95;
 
   if (wetNow) {
-    final dryIdx =
-        hours.indexWhere((h) => h.precipProb < 30 && h.precipMm < 0.1, 1);
-    parts.add(dryIdx > 0 && dryIdx <= 12
-        ? '${kindFor(c.code)} easing around ${at(hours[dryIdx].time)}.'
-        : '${kindFor(c.code)} continuing for the next several hours.');
+    final dryIdx = hours.indexWhere(
+      (h) => h.precipProb < 30 && h.precipMm < 0.1,
+      1,
+    );
+    parts.add(
+      dryIdx > 0 && dryIdx <= 12
+          ? '${kindFor(c.code)} easing around ${at(hours[dryIdx].time)}.'
+          : '${kindFor(c.code)} continuing for the next several hours.',
+    );
   } else {
     final wetIdx = hours.indexWhere(wet, 1);
     if (wetIdx > 0 && wetIdx <= 12) {

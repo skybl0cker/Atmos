@@ -14,8 +14,13 @@ class ArtIcon extends StatelessWidget {
 
   /// Draw for a dark surface (lighter outline, deeper cloud fill).
   final bool onDark;
-  const ArtIcon(this.code,
-      {super.key, required this.day, this.size = 36, this.onDark = false});
+  const ArtIcon(
+    this.code, {
+    super.key,
+    required this.day,
+    this.size = 36,
+    this.onDark = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,8 +56,7 @@ class _ArtPainter extends CustomPainter {
   static const _drop = Color(0xFF4AA8FF);
 
   Color get _ink => onDark ? const Color(0xFFE9E4FF) : const Color(0xFF2B2346);
-  Color get _cloudFill =>
-      onDark ? const Color(0xFF3A3166) : Colors.white;
+  Color get _cloudFill => onDark ? const Color(0xFF3A3166) : Colors.white;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -137,46 +141,64 @@ class _ArtPainter extends CustomPainter {
       final a = i * math.pi / 6;
       final d = Offset(math.cos(a), math.sin(a));
       final long = i.isEven;
-      canvas.drawLine(
-          c + d * r * 1.42, c + d * r * (long ? 1.72 : 1.56), ray);
+      canvas.drawLine(c + d * r * 1.42, c + d * r * (long ? 1.72 : 1.56), ray);
     }
   }
 
   void _moon(Canvas canvas, Offset c, double r) {
     canvas.drawCircle(
-        c, r * 1.45, Paint()..color = const Color(0xFFFFE9A8).withAlpha(45));
+      c,
+      r * 1.45,
+      Paint()..color = const Color(0xFFFFE9A8).withAlpha(45),
+    );
     canvas.saveLayer(Rect.fromCircle(center: c, radius: r * 1.6), Paint());
     canvas.drawCircle(c, r, Paint()..color = const Color(0xFFFFE39A));
-    canvas.drawCircle(c + Offset(r * .45, -r * .35), r * .85,
-        Paint()..blendMode = BlendMode.dstOut);
+    canvas.drawCircle(
+      c + Offset(r * .45, -r * .35),
+      r * .85,
+      Paint()..blendMode = BlendMode.dstOut,
+    );
     canvas.restore();
   }
 
   /// Puffy outlined cloud. [dx]/[dy] shift it (fractions of the icon),
   /// [scale] shrinks it around the icon centre.
-  void _cloud(Canvas canvas, double s,
-      {double dx = 0, double dy = 0, double scale = 1, bool faded = false}) {
+  void _cloud(
+    Canvas canvas,
+    double s, {
+    double dx = 0,
+    double dy = 0,
+    double scale = 1,
+    bool faded = false,
+  }) {
     Offset p(double x, double y) => Offset(
-        (0.5 + (x - 0.5) * scale + dx) * s, (0.5 + (y - 0.5) * scale + dy) * s);
+      (0.5 + (x - 0.5) * scale + dx) * s,
+      (0.5 + (y - 0.5) * scale + dy) * s,
+    );
     double r(double v) => v * scale * s;
 
     var path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Rect.fromPoints(p(.14, .5), p(.88, .76)),
-        Radius.circular(r(.13)),
-      ));
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromPoints(p(.14, .5), p(.88, .76)),
+          Radius.circular(r(.13)),
+        ),
+      );
     for (final (x, y, rad) in const [
       (.34, .52, .17),
       (.55, .42, .23),
       (.75, .55, .15),
     ]) {
-      path = Path.combine(PathOperation.union, path,
-          Path()..addOval(Rect.fromCircle(center: p(x, y), radius: r(rad))));
+      path = Path.combine(
+        PathOperation.union,
+        path,
+        Path()..addOval(Rect.fromCircle(center: p(x, y), radius: r(rad))),
+      );
     }
     canvas.drawPath(
-        path,
-        Paint()
-          ..color = faded ? _cloudFill.withAlpha(200) : _cloudFill);
+      path,
+      Paint()..color = faded ? _cloudFill.withAlpha(200) : _cloudFill,
+    );
     canvas.drawPath(
       path,
       Paint()

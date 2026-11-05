@@ -26,8 +26,7 @@ class EchoMotion {
     required this.confidence,
   });
 
-  double get speedKmh =>
-      math.sqrt(eastMs * eastMs + northMs * northMs) * 3.6;
+  double get speedKmh => math.sqrt(eastMs * eastMs + northMs * northMs) * 3.6;
 
   /// Compass direction the echo is moving TOWARD, in degrees.
   int get toDir =>
@@ -105,12 +104,22 @@ EchoMotion? _estimate(_MotionInput q) {
   // correlation peak is over the whole search range. The fine pass only
   // refines the fix within ±4 px, so its peak is flat by construction and
   // must not be used as a confidence metric.
-  final coarse = _bestShift(_downsample(fa, n, 64), _downsample(fb, n, 64),
-      64, 16);
+  final coarse = _bestShift(
+    _downsample(fa, n, 64),
+    _downsample(fb, n, 64),
+    64,
+    16,
+  );
   if (coarse.confidence < 0.2) return null;
   final k = n ~/ 64;
-  final fine = _bestShift(fa, fb, n, 4,
-      centerX: coarse.dx * k, centerY: coarse.dy * k);
+  final fine = _bestShift(
+    fa,
+    fb,
+    n,
+    4,
+    centerX: coarse.dx * k,
+    centerY: coarse.dy * k,
+  );
 
   final mpp =
       156543.03392 * math.cos(q.lat * math.pi / 180) / math.pow(2, q.zoom);
@@ -119,7 +128,10 @@ EchoMotion? _estimate(_MotionInput q) {
   final speed = math.sqrt(eastMs * eastMs + northMs * northMs);
   if (speed > 45) return null;
   return EchoMotion(
-      eastMs: eastMs, northMs: northMs, confidence: coarse.confidence);
+    eastMs: eastMs,
+    northMs: northMs,
+    confidence: coarse.confidence,
+  );
 }
 
 /// Echo intensity 0..1: alpha-weighted luminance. RainViewer's Universal
@@ -164,8 +176,14 @@ Float64List _downsample(Float64List f, int n, int m) {
 /// Finds the integer pixel shift of B relative to A minimizing the
 /// sum-of-squared-differences over their overlap. Confidence is
 /// 1 - best/mean SSD: a sharp unique minimum scores near 1.
-_Shift _bestShift(Float64List a, Float64List b, int n, int range,
-    {int centerX = 0, int centerY = 0}) {
+_Shift _bestShift(
+  Float64List a,
+  Float64List b,
+  int n,
+  int range, {
+  int centerX = 0,
+  int centerY = 0,
+}) {
   var bestDx = centerX, bestDy = centerY;
   var best = double.infinity, sum = 0.0, cnt = 0;
   for (var dy = centerY - range; dy <= centerY + range; dy++) {
@@ -195,7 +213,6 @@ _Shift _bestShift(Float64List a, Float64List b, int n, int range,
   }
   if (cnt == 0) return const _Shift(0, 0, 0);
   final mean = sum / cnt;
-  final confidence =
-      mean <= 0 ? 0.0 : (1 - best / mean).clamp(0.0, 1.0);
+  final confidence = mean <= 0 ? 0.0 : (1 - best / mean).clamp(0.0, 1.0);
   return _Shift(bestDx, bestDy, confidence);
 }

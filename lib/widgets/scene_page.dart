@@ -47,9 +47,10 @@ class RoundIconButton extends StatelessWidget {
               boxShadow: solid
                   ? const [
                       BoxShadow(
-                          color: Color(0x33000000),
-                          blurRadius: 12,
-                          offset: Offset(0, 4)),
+                        color: Color(0x33000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
                     ]
                   : null,
             ),
@@ -97,22 +98,28 @@ class PageHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title,
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w500,
+                    shadows: solidButtons ? null : shadow,
+                  ),
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty)
+                  Text(
+                    subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        color: color,
-                        fontSize: 21,
-                        fontWeight: FontWeight.w500,
-                        shadows: solidButtons ? null : shadow)),
-                if (subtitle != null && subtitle!.isNotEmpty)
-                  Text(subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: color.withAlpha(215),
-                          fontSize: 12,
-                          shadows: solidButtons ? null : shadow)),
+                      color: color.withAlpha(215),
+                      fontSize: 12,
+                      shadows: solidButtons ? null : shadow,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -176,9 +183,10 @@ class ScenePage extends StatelessWidget {
               borderRadius: radius,
               boxShadow: [
                 BoxShadow(
-                    color: const Color(0x33000000),
-                    blurRadius: 30,
-                    offset: Offset(0, wide ? 10 : -6)),
+                  color: const Color(0x33000000),
+                  blurRadius: 30,
+                  offset: Offset(0, wide ? 10 : -6),
+                ),
               ],
             ),
             child: ClipRRect(borderRadius: radius, child: body),
@@ -195,9 +203,13 @@ class ScenePage extends StatelessWidget {
           children: [
             if (wide)
               Positioned.fill(
-                  child: Scene(data: d, alignment: Scene.wideAlignment))
+                child: Scene(data: d, alignment: Scene.wideAlignment),
+              )
             else
-              SizedBox(height: h * sceneHeight + 40, child: Scene(data: d)),
+              SizedBox(
+                height: h * sceneHeight + 40,
+                child: Scene(data: d),
+              ),
             SafeArea(
               bottom: false,
               child: wide ? MaxWidth(child: column) : column,
@@ -235,7 +247,10 @@ class SceneSearchField extends StatelessWidget {
         borderRadius: BorderRadius.circular(26),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x26000000), blurRadius: 18, offset: Offset(0, 6)),
+            color: Color(0x26000000),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -267,7 +282,9 @@ class SceneSearchField extends StatelessWidget {
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Color(0xFF6C63FF)),
+                  strokeWidth: 2,
+                  color: Color(0xFF6C63FF),
+                ),
               ),
             )
           else if (controller.text.isNotEmpty)
@@ -295,12 +312,15 @@ class SheetLabel extends StatelessWidget {
     final pal = SheetPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
-      child: Text(text.toUpperCase(),
-          style: TextStyle(
-              color: pal.soft,
-              fontSize: 11,
-              letterSpacing: 1.3,
-              fontWeight: FontWeight.w600)),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          color: pal.soft,
+          fontSize: 11,
+          letterSpacing: 1.3,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -359,18 +379,23 @@ class SheetRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title,
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: pal.ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (subtitle != null && subtitle!.isNotEmpty)
+                        Text(
+                          subtitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: pal.ink,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500)),
-                      if (subtitle != null && subtitle!.isNotEmpty)
-                        Text(subtitle!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: pal.soft, fontSize: 12)),
+                          style: TextStyle(color: pal.soft, fontSize: 12),
+                        ),
                     ],
                   ),
                 ),

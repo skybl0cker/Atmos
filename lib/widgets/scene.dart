@@ -132,26 +132,35 @@ class SheetPalette {
   final Color bg, ink, soft, faint, card, track;
   final bool dark;
   const SheetPalette._(
-      this.bg, this.ink, this.soft, this.faint, this.card, this.track, this.dark);
+    this.bg,
+    this.ink,
+    this.soft,
+    this.faint,
+    this.card,
+    this.track,
+    this.dark,
+  );
 
   static SheetPalette of(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? const SheetPalette._(
-              Color(0xFF1C1838),
-              Colors.white,
-              Color(0xB3FFFFFF),
-              Color(0x66FFFFFF),
-              Color(0x14FFFFFF),
-              Color(0x26FFFFFF),
-              true)
-          : const SheetPalette._(
-              Colors.white,
-              Color(0xFF1F1A33),
-              Color(0xFF8A86A0),
-              Color(0xFFC9C6D6),
-              Color(0xFFF5F3FB),
-              Color(0xFFEAE7F3),
-              false);
+      ? const SheetPalette._(
+          Color(0xFF1C1838),
+          Colors.white,
+          Color(0xB3FFFFFF),
+          Color(0x66FFFFFF),
+          Color(0x14FFFFFF),
+          Color(0x26FFFFFF),
+          true,
+        )
+      : const SheetPalette._(
+          Colors.white,
+          Color(0xFF1F1A33),
+          Color(0xFF8A86A0),
+          Color(0xFFC9C6D6),
+          Color(0xFFF5F3FB),
+          Color(0xFFEAE7F3),
+          false,
+        );
 }
 
 /// Small outlined ring used as the degree mark, like the big readout's.
@@ -159,18 +168,22 @@ class DegreeRing extends StatelessWidget {
   final double size;
   final double stroke;
   final Color color;
-  const DegreeRing(
-      {super.key, required this.size, required this.stroke, required this.color});
+  const DegreeRing({
+    super.key,
+    required this.size,
+    required this.stroke,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: color, width: stroke),
-        ),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(color: color, width: stroke),
+    ),
+  );
 }
 
 /// A temperature number with a small ring degree hanging top-right.
@@ -179,11 +192,13 @@ class RingTemp extends StatelessWidget {
   final double fontSize;
   final FontWeight weight;
   final Color color;
-  const RingTemp(this.value,
-      {super.key,
-      required this.fontSize,
-      this.weight = FontWeight.w300,
-      required this.color});
+  const RingTemp(
+    this.value, {
+    super.key,
+    required this.fontSize,
+    this.weight = FontWeight.w300,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -191,18 +206,22 @@ class RingTemp extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value,
-            style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: weight,
-                color: color,
-                height: 1.1)),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: weight,
+            color: color,
+            height: 1.1,
+          ),
+        ),
         Padding(
           padding: EdgeInsets.only(top: fontSize * 0.2, left: 1),
           child: DegreeRing(
-              size: fontSize * 0.16,
-              stroke: fontSize * 0.035 + 0.6,
-              color: color),
+            size: fontSize * 0.16,
+            stroke: fontSize * 0.035 + 0.6,
+            color: color,
+          ),
         ),
       ],
     );

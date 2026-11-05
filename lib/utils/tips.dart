@@ -19,7 +19,8 @@ List<DayTip> dayTips(WeatherData d, {int max = 3}) {
 
   final stormy = c.code >= 95 || next.any((h) => h.code >= 95);
   final snowy = isSnowCode(c.code) || next.any((h) => isSnowCode(h.code));
-  final wet = isRainCode(c.code) ||
+  final wet =
+      isRainCode(c.code) ||
       next.any((h) => h.precipProb >= 50 || h.precipMm >= 0.5) ||
       (today?.precipProb ?? 0) >= 60;
 
@@ -54,8 +55,12 @@ List<DayTip> dayTips(WeatherData d, {int max = 3}) {
   }
 
   if (tips.isEmpty && !wet && feels > 16 && feels < 29) {
-    tips.add(DayTip(c.isDay ? '😎' : '🌙',
-        c.isDay ? 'Great day to be outside' : 'Pleasant night out'));
+    tips.add(
+      DayTip(
+        c.isDay ? '😎' : '🌙',
+        c.isDay ? 'Great day to be outside' : 'Pleasant night out',
+      ),
+    );
   }
   return tips.take(max).toList();
 }

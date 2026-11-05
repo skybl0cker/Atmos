@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/weather.dart';
 import '../state/app_state.dart';
 import '../widgets/scene.dart';
@@ -98,9 +100,11 @@ class _SearchScreenState extends State<SearchScreen> {
       children: [
         Icon(icon, size: 44, color: pal.faint),
         const SizedBox(height: 12),
-        Text(text,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: pal.soft, fontSize: 14)),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: pal.soft, fontSize: 14),
+        ),
       ],
     );
   }
@@ -119,8 +123,10 @@ class _SearchScreenState extends State<SearchScreen> {
             iconColor: _accent,
             title: p.name,
             subtitle: p.subtitle,
-            trailing: Icon(Icons.chevron_right_rounded,
-                color: SheetPalette.of(context).faint),
+            trailing: Icon(
+              Icons.chevron_right_rounded,
+              color: SheetPalette.of(context).faint,
+            ),
             onTap: () => _pick(p),
           ),
       ],
@@ -155,8 +161,10 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               alignment: Alignment.centerRight,
               padding: const EdgeInsets.only(right: 22),
-              child: const Icon(Icons.delete_outline_rounded,
-                  color: Colors.white),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.white,
+              ),
             ),
             onDismissed: (_) => s.removePlace(p),
             child: SheetRow(
@@ -166,11 +174,14 @@ class _SearchScreenState extends State<SearchScreen> {
               subtitle: p.subtitle,
               highlighted: p.key == s.selected?.key,
               trailing: p.key == s.selected?.key
-                  ? const Text('Showing',
+                  ? const Text(
+                      'Showing',
                       style: TextStyle(
-                          color: _accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600))
+                        color: _accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
                   : null,
               onTap: () => _pick(p),
             ),

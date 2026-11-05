@@ -12,8 +12,12 @@ class NowcastStrip extends StatelessWidget {
   final List<MinutelyPoint> minutely;
   final int hours;
   final String? title;
-  const NowcastStrip(
-      {super.key, required this.minutely, this.hours = 4, this.title});
+  const NowcastStrip({
+    super.key,
+    required this.minutely,
+    this.hours = 4,
+    this.title,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -37,22 +41,26 @@ class NowcastStrip extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(title ?? 'Next $hours hours',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: pal.ink,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
+                child: Text(
+                  title ?? 'Next $hours hours',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: pal.ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                    peak <= 0 ? 'No rain expected' : 'Peak ${s.precip(peak)}/h',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(color: pal.soft, fontSize: 11)),
+                  peak <= 0 ? 'No rain expected' : 'Peak ${s.precip(peak)}/h',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(color: pal.soft, fontSize: 11),
+                ),
               ),
             ],
           ),

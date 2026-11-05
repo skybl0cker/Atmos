@@ -1,5 +1,7 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../models/weather.dart';
 
 /// A parsed forecast plus the raw response bodies it came from, so the app
@@ -18,16 +20,19 @@ class WeatherService {
     final uri = Uri.https('api.open-meteo.com', '/v1/forecast', {
       'latitude': p.lat.toString(),
       'longitude': p.lon.toString(),
-      'current': 'temperature_2m,relative_humidity_2m,apparent_temperature,'
+      'current':
+          'temperature_2m,relative_humidity_2m,apparent_temperature,'
           'is_day,precipitation,weather_code,pressure_msl,'
           'wind_speed_10m,wind_direction_10m',
-      'hourly': 'temperature_2m,precipitation_probability,precipitation,weather_code,'
+      'hourly':
+          'temperature_2m,precipitation_probability,precipitation,weather_code,'
           'wind_speed_850hPa,wind_direction_850hPa,'
           'wind_speed_700hPa,wind_direction_700hPa,'
           'wind_speed_500hPa,wind_direction_500hPa',
       'minutely_15': 'precipitation_probability,precipitation,weather_code',
       'forecast_minutely_15': '16',
-      'daily': 'weather_code,temperature_2m_max,temperature_2m_min,'
+      'daily':
+          'weather_code,temperature_2m_max,temperature_2m_min,'
           'sunrise,sunset,uv_index_max,precipitation_probability_max',
       'timezone': 'auto',
       'forecast_days': '14',
@@ -43,7 +48,8 @@ class WeatherService {
   /// cached). Throws if the forecast body is malformed.
   static WeatherData parse(String forecastJson, String? airJson) {
     final w = WeatherData.fromJson(
-        jsonDecode(forecastJson) as Map<String, dynamic>);
+      jsonDecode(forecastJson) as Map<String, dynamic>,
+    );
     AirQuality? air;
     if (airJson != null) {
       try {
@@ -67,12 +73,16 @@ class WeatherService {
   /// Raw air-quality body, or null when unavailable (never throws).
   Future<String?> _air(Place p) async {
     try {
-      final uri = Uri.https('air-quality-api.open-meteo.com', '/v1/air-quality', {
-        'latitude': p.lat.toString(),
-        'longitude': p.lon.toString(),
-        'current': 'us_aqi,pm10,pm2_5,ozone,nitrogen_dioxide',
-        'timezone': 'auto',
-      });
+      final uri = Uri.https(
+        'air-quality-api.open-meteo.com',
+        '/v1/air-quality',
+        {
+          'latitude': p.lat.toString(),
+          'longitude': p.lon.toString(),
+          'current': 'us_aqi,pm10,pm2_5,ozone,nitrogen_dioxide',
+          'timezone': 'auto',
+        },
+      );
       final r = await http.get(uri).timeout(_timeout);
       if (r.statusCode != 200) return null;
       return r.body;

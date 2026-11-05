@@ -31,14 +31,19 @@ class ForecastScreen extends StatelessWidget {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('14-Day Forecast',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
+              const Text(
+                '14-Day Forecast',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+              ),
               if (place != null)
-                Text(place.name,
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white70)),
+                Text(
+                  place.name,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white70,
+                  ),
+                ),
             ],
           ),
         ),
@@ -47,7 +52,8 @@ class ForecastScreen extends StatelessWidget {
             // Big screens: painting fills the window, list floats centered.
             if (wide)
               Positioned.fill(
-                  child: Scene(data: s.data, alignment: Scene.wideAlignment))
+                child: Scene(data: s.data, alignment: Scene.wideAlignment),
+              )
             else
               SizedBox(
                 height: h * 0.42,
@@ -56,8 +62,12 @@ class ForecastScreen extends StatelessWidget {
             ListView(
               physics: const BouncingScrollPhysics(),
               padding: wide
-                  ? EdgeInsets.fromLTRB(centeredGutter(context, min: 24),
-                      h * 0.16, centeredGutter(context, min: 24), 32)
+                  ? EdgeInsets.fromLTRB(
+                      centeredGutter(context, min: 24),
+                      h * 0.16,
+                      centeredGutter(context, min: 24),
+                      32,
+                    )
                   : EdgeInsets.only(top: h * 0.3),
               children: [
                 Container(
@@ -66,13 +76,13 @@ class ForecastScreen extends StatelessWidget {
                     color: pal.bg,
                     borderRadius: wide
                         ? BorderRadius.circular(38)
-                        : const BorderRadius.vertical(
-                            top: Radius.circular(38)),
+                        : const BorderRadius.vertical(top: Radius.circular(38)),
                     boxShadow: [
                       BoxShadow(
-                          color: const Color(0x33000000),
-                          blurRadius: 30,
-                          offset: Offset(0, wide ? 10 : -6)),
+                        color: const Color(0x33000000),
+                        blurRadius: 30,
+                        offset: Offset(0, wide ? 10 : -6),
+                      ),
                     ],
                   ),
                   padding: const EdgeInsets.fromLTRB(14, 22, 14, 32),

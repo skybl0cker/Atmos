@@ -28,45 +28,43 @@ class Place {
     double? lat,
     double? lon,
     bool? isCurrent,
-  }) =>
-      Place(
-        name: name ?? this.name,
-        region: region ?? this.region,
-        country: country ?? this.country,
-        lat: lat ?? this.lat,
-        lon: lon ?? this.lon,
-        isCurrent: isCurrent ?? this.isCurrent,
-      );
+  }) => Place(
+    name: name ?? this.name,
+    region: region ?? this.region,
+    country: country ?? this.country,
+    lat: lat ?? this.lat,
+    lon: lon ?? this.lon,
+    isCurrent: isCurrent ?? this.isCurrent,
+  );
 
-  String get subtitle => [region, country]
-      .where((s) => s != null && s.isNotEmpty)
-      .join(', ');
+  String get subtitle =>
+      [region, country].where((s) => s != null && s.isNotEmpty).join(', ');
 
   factory Place.fromGeocoding(Map<String, dynamic> j) => Place(
-        name: j['name'] as String,
-        region: j['admin1'] as String?,
-        country: j['country'] as String?,
-        lat: (j['latitude'] as num).toDouble(),
-        lon: (j['longitude'] as num).toDouble(),
-      );
+    name: j['name'] as String,
+    region: j['admin1'] as String?,
+    country: j['country'] as String?,
+    lat: (j['latitude'] as num).toDouble(),
+    lon: (j['longitude'] as num).toDouble(),
+  );
 
   factory Place.fromJson(Map<String, dynamic> j) => Place(
-        name: j['name'] as String,
-        region: j['region'] as String?,
-        country: j['country'] as String?,
-        lat: (j['lat'] as num).toDouble(),
-        lon: (j['lon'] as num).toDouble(),
-        isCurrent: j['isCurrent'] as bool? ?? false,
-      );
+    name: j['name'] as String,
+    region: j['region'] as String?,
+    country: j['country'] as String?,
+    lat: (j['lat'] as num).toDouble(),
+    lon: (j['lon'] as num).toDouble(),
+    isCurrent: j['isCurrent'] as bool? ?? false,
+  );
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'region': region,
-        'country': country,
-        'lat': lat,
-        'lon': lon,
-        'isCurrent': isCurrent,
-      };
+    'name': name,
+    'region': region,
+    'country': country,
+    'lat': lat,
+    'lon': lon,
+    'isCurrent': isCurrent,
+  };
 }
 
 class CurrentWeather {
@@ -201,18 +199,18 @@ class WeatherData {
   });
 
   WeatherData withAir(AirQuality? a) => WeatherData(
-        current: current,
-        hourly: hourly,
-        minutely: minutely,
-        daily: daily,
-        air: a,
-        steeringWindKmh: steeringWindKmh,
-        steeringWindDir: steeringWindDir,
-      );
+    current: current,
+    hourly: hourly,
+    minutely: minutely,
+    daily: daily,
+    air: a,
+    steeringWindKmh: steeringWindKmh,
+    steeringWindDir: steeringWindDir,
+  );
 
   /// Whether [t] (place-local) is between that day's sunrise and sunset.
-  bool isDaylight(DateTime t) => isDaylightAt(
-      t, daily.map((d) => (sunrise: d.sunrise, sunset: d.sunset)));
+  bool isDaylight(DateTime t) =>
+      isDaylightAt(t, daily.map((d) => (sunrise: d.sunrise, sunset: d.sunset)));
 
   /// Whether it is daytime at the place *right now*: the forecast's own
   /// clock ([CurrentWeather.time], place-local) advanced by however long
@@ -291,8 +289,12 @@ class WeatherData {
     final hWindDir700 = (h['wind_direction_700hPa'] as List?) ?? [];
     final hWindSpd500 = (h['wind_speed_500hPa'] as List?) ?? [];
     final hWindDir500 = (h['wind_direction_500hPa'] as List?) ?? [];
-    final startOfHour = DateTime(current.time.year, current.time.month,
-        current.time.day, current.time.hour);
+    final startOfHour = DateTime(
+      current.time.year,
+      current.time.month,
+      current.time.day,
+      current.time.hour,
+    );
 
     final hourly = <HourlyPoint>[];
     int? firstKept;
@@ -301,13 +303,15 @@ class WeatherData {
       if (t.isBefore(startOfHour)) continue;
       firstKept ??= k;
       final mm = k < hPrecip.length ? n(hPrecip[k]) : 0.0; // per-hour = mm/hr
-      hourly.add(HourlyPoint(
-        time: t,
-        tempC: n(hTemp[k]),
-        precipProb: i(hProb[k]),
-        precipMm: mm,
-        code: synthesizeCode(i(hCode[k]), mm),
-      ));
+      hourly.add(
+        HourlyPoint(
+          time: t,
+          tempC: n(hTemp[k]),
+          precipProb: i(hProb[k]),
+          precipMm: mm,
+          code: synthesizeCode(i(hCode[k]), mm),
+        ),
+      );
     }
 
     // 15-minute nowcast (next ~2 hours). Per-interval accumulations are
@@ -323,12 +327,14 @@ class WeatherData {
         final t = DateTime.parse(mTimes[k]);
         if (t.isBefore(startOfHour)) continue;
         final rate = (k < mPrecip.length ? n(mPrecip[k]) : 0.0) * 4.0;
-        minutely.add(MinutelyPoint(
-          time: t,
-          precipProb: k < mProb.length ? i(mProb[k]) : 0,
-          precipMm: rate,
-          code: synthesizeCode(k < mCode.length ? i(mCode[k]) : 3, rate),
-        ));
+        minutely.add(
+          MinutelyPoint(
+            time: t,
+            precipProb: k < mProb.length ? i(mProb[k]) : 0,
+            precipMm: rate,
+            code: synthesizeCode(k < mCode.length ? i(mCode[k]) : 3, rate),
+          ),
+        );
       }
     }
 

@@ -64,12 +64,15 @@ Future<void> runRainCheck() async {
   }
 
   final plugin = FlutterLocalNotificationsPlugin();
-  await plugin.initialize(const InitializationSettings(
-    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-  ));
+  await plugin.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    ),
+  );
   await plugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(_channel);
 
   for (final p in places.take(3)) {
@@ -99,7 +102,9 @@ Future<void> runRainCheck() async {
       ),
     );
     await prefs.setInt(
-        'lastRainNotifyMs', DateTime.now().millisecondsSinceEpoch);
+      'lastRainNotifyMs',
+      DateTime.now().millisecondsSinceEpoch,
+    );
     break;
   }
 }

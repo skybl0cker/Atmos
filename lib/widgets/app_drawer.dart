@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/weather.dart';
 import '../screens/search_screen.dart';
 import '../state/app_state.dart';
@@ -14,8 +15,7 @@ class AppDrawer extends StatelessWidget {
     final s = context.watch<AppState>();
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Drawer(
-      backgroundColor:
-          dark ? const Color(0xFF1B1440) : const Color(0xFFF7F4FF),
+      backgroundColor: dark ? const Color(0xFF1B1440) : const Color(0xFFF7F4FF),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
       ),
@@ -26,8 +26,9 @@ class AppDrawer extends StatelessWidget {
             Container(
               height: 150,
               decoration: const BoxDecoration(
-                borderRadius:
-                    BorderRadius.only(bottomRight: Radius.circular(28)),
+                borderRadius: BorderRadius.only(
+                  bottomRight: Radius.circular(28),
+                ),
                 image: DecorationImage(
                   image: AssetImage('assets/backgrounds/bg_day.webp'),
                   fit: BoxFit.cover,
@@ -37,23 +38,24 @@ class AppDrawer extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: const BorderRadius.only(
-                      bottomRight: Radius.circular(28)),
+                    bottomRight: Radius.circular(28),
+                  ),
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withAlpha(90),
-                    ],
+                    colors: [Colors.transparent, Colors.black.withAlpha(90)],
                   ),
                 ),
                 padding: const EdgeInsets.all(20),
                 alignment: Alignment.bottomLeft,
-                child: const Text('Atmos',
-                    style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white)),
+                child: const Text(
+                  'Atmos',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -72,34 +74,39 @@ class AppDrawer extends StatelessWidget {
               label: 'Add a place',
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const SearchScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SearchScreen()),
+                );
               },
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('SAVED PLACES',
-                    style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w700,
-                        color: dark ? Colors.white54 : Colors.black45)),
+                child: Text(
+                  'SAVED PLACES',
+                  style: TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w700,
+                    color: dark ? Colors.white54 : Colors.black45,
+                  ),
+                ),
               ),
             ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 children: [
-                  for (final p in s.saved)
-                    _placeTile(context, s, p, dark),
+                  for (final p in s.saved) _placeTile(context, s, p, dark),
                   if (s.saved.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(20),
                       child: Text(
-                          'Save places from the weather screen to see them here.',
-                          style: TextStyle(color: Colors.grey)),
+                        'Save places from the weather screen to see them here.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
                 ],
               ),
@@ -132,15 +139,18 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               child: ListTile(
                 leading: Icon(
-                    s.isDaytime
-                        ? Icons.light_mode_outlined
-                        : Icons.dark_mode_outlined,
-                    color: const Color(0xFF7C4DFF)),
-                title: const Text('Theme · Auto',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(s.isDaytime
-                    ? 'Light until sunset'
-                    : 'Dark until sunrise'),
+                  s.isDaytime
+                      ? Icons.light_mode_outlined
+                      : Icons.dark_mode_outlined,
+                  color: const Color(0xFF7C4DFF),
+                ),
+                title: const Text(
+                  'Theme · Auto',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  s.isDaytime ? 'Light until sunset' : 'Dark until sunrise',
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -150,15 +160,16 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _tile(BuildContext context,
-      {required IconData icon,
-      required String label,
-      required VoidCallback onTap}) {
+  Widget _tile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: ListTile(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         leading: Icon(icon, color: const Color(0xFF7C4DFF)),
         title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         onTap: onTap,
@@ -166,25 +177,24 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _placeTile(
-      BuildContext context, AppState s, Place p, bool dark) {
+  Widget _placeTile(BuildContext context, AppState s, Place p, bool dark) {
     final selected = p.key == s.selected?.key;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: ListTile(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         tileColor: selected
             ? const Color(0xFF7C4DFF).withAlpha(dark ? 50 : 26)
             : null,
-        leading: Icon(Icons.star,
-            color: selected
-                ? const Color(0xFF7C4DFF)
-                : Colors.amber),
-        title: Text(p.name,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle:
-            p.subtitle.isEmpty ? null : Text(p.subtitle),
+        leading: Icon(
+          Icons.star,
+          color: selected ? const Color(0xFF7C4DFF) : Colors.amber,
+        ),
+        title: Text(
+          p.name,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: p.subtitle.isEmpty ? null : Text(p.subtitle),
         onLongPress: () => _confirmRemove(context, s, p),
         onTap: () {
           Navigator.pop(context);
@@ -194,19 +204,19 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _switch(BuildContext context,
-      {required IconData icon,
-      required String label,
-      required bool value,
-      required ValueChanged<bool> onChanged}) {
+  Widget _switch(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: SwitchListTile(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         secondary: Icon(icon, color: const Color(0xFF7C4DFF)),
-        title: Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         value: value,
         onChanged: onChanged,
       ),
@@ -220,8 +230,9 @@ class AppDrawer extends StatelessWidget {
         title: Text('Remove ${p.name}?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               s.removePlace(p);

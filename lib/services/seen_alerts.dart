@@ -9,8 +9,11 @@
 /// never comes back.
 const seenAlertsCap = 300;
 
-List<String> mergeSeenAlerts(Iterable<String> existing, Iterable<String> add,
-    {int cap = seenAlertsCap}) {
+List<String> mergeSeenAlerts(
+  Iterable<String> existing,
+  Iterable<String> add, {
+  int cap = seenAlertsCap,
+}) {
   // Insertion-ordered: re-adding an id moves it to the "newest" end.
   final ordered = <String>{};
   for (final id in existing) {

@@ -8,15 +8,19 @@ class MoonIcon extends StatelessWidget {
   final double phase;
   final double size;
   final Color shadow;
-  const MoonIcon(
-      {super.key, required this.phase, this.size = 28, required this.shadow});
+  const MoonIcon({
+    super.key,
+    required this.phase,
+    this.size = 28,
+    required this.shadow,
+  });
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(painter: _MoonPainter(phase, shadow)),
-      );
+    width: size,
+    height: size,
+    child: CustomPaint(painter: _MoonPainter(phase, shadow)),
+  );
 }
 
 class _MoonPainter extends CustomPainter {
@@ -47,12 +51,13 @@ class _MoonPainter extends CustomPainter {
     lit.close();
     canvas.drawPath(lit, Paint()..color = const Color(0xFFFFE39A));
     canvas.drawCircle(
-        c,
-        r,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = const Color(0x33000000));
+      c,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0x33000000),
+    );
   }
 
   @override

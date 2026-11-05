@@ -1,7 +1,7 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-
 
 class WeatherBackground extends StatefulWidget {
   final int code;
@@ -33,7 +33,8 @@ class _WeatherBackgroundState extends State<WeatherBackground>
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker((d) => _clock.value = d.inMicroseconds / 1e6)..start();
+    _ticker = createTicker((d) => _clock.value = d.inMicroseconds / 1e6)
+      ..start();
   }
 
   @override
@@ -117,7 +118,11 @@ _Spec _specFor(int code, bool day) {
         : const _Spec(stars: true, clouds: 3, cloudAlpha: 0.15);
   }
   if (code == 3) {
-    return const _Spec(clouds: 6, cloudAlpha: 0.32, cloudColor: Color(0xFFDDE3EA));
+    return const _Spec(
+      clouds: 6,
+      cloudAlpha: 0.32,
+      cloudColor: Color(0xFFDDE3EA),
+    );
   }
   if (code == 45 || code == 48) {
     return const _Spec(clouds: 6, fog: true, cloudAlpha: 0.28);
@@ -128,7 +133,10 @@ _Spec _specFor(int code, bool day) {
   if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) {
     final heavy = code == 65 || code == 67 || code == 82;
     return _Spec(
-        rain: heavy ? 160 : 100, clouds: 6, cloudColor: const Color(0xFFB8C2CF));
+      rain: heavy ? 160 : 100,
+      clouds: 6,
+      cloudColor: const Color(0xFFB8C2CF),
+    );
   }
   if ((code >= 71 && code <= 77) || code == 85 || code == 86) {
     return const _Spec(snow: 70, clouds: 4, cloudAlpha: 0.22);
@@ -153,10 +161,10 @@ class _P {
 
 class _Particles {
   static List<_P> _gen(int n, math.Random r) => List.generate(
-        n,
-        (_) => _P(r.nextDouble(), r.nextDouble(), r.nextDouble(), r.nextDouble()),
-        growable: false,
-      );
+    n,
+    (_) => _P(r.nextDouble(), r.nextDouble(), r.nextDouble(), r.nextDouble()),
+    growable: false,
+  );
 
   final rain = _gen(160, math.Random(1));
   final snow = _gen(70, math.Random(2));
@@ -199,7 +207,8 @@ class _FxPainter extends CustomPainter {
   void _paintClouds(Canvas canvas, double t, double w, double h) {
     final paint = Paint()
       ..color = spec.cloudColor.withValues(
-          alpha: spec.cloudAlpha.clamp(0.0, 1.0).toDouble())
+        alpha: spec.cloudAlpha.clamp(0.0, 1.0).toDouble(),
+      )
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 24);
     final fogScale = spec.fog ? 2.2 : 1.0;
 
@@ -211,19 +220,26 @@ class _FxPainter extends CustomPainter {
       final cw = 220 * (0.7 + c.d * 0.8) * fogScale;
       final ch = 80 * (0.7 + c.d * 0.8) * (spec.fog ? 1.4 : 1.0);
 
-      canvas.drawOval(Rect.fromCenter(center: Offset(x, y), width: cw, height: ch), paint);
       canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset(x - cw * 0.3, y + ch * 0.15),
-              width: cw * 0.7,
-              height: ch * 0.8),
-          paint);
+        Rect.fromCenter(center: Offset(x, y), width: cw, height: ch),
+        paint,
+      );
       canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset(x + cw * 0.3, y + ch * 0.1),
-              width: cw * 0.7,
-              height: ch * 0.75),
-          paint);
+        Rect.fromCenter(
+          center: Offset(x - cw * 0.3, y + ch * 0.15),
+          width: cw * 0.7,
+          height: ch * 0.8,
+        ),
+        paint,
+      );
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(x + cw * 0.3, y + ch * 0.1),
+          width: cw * 0.7,
+          height: ch * 0.75,
+        ),
+        paint,
+      );
     }
   }
 

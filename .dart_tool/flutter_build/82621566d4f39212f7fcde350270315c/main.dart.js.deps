@@ -1642,7 +1642,6 @@ file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/main.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/models/alert.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/models/weather.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/screens/alerts_screen.dart
-file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/screens/event_screen.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/screens/forecast_screen.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/screens/home_screen.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/screens/main_shell.dart
@@ -1655,13 +1654,12 @@ file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/background_di
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/background_rain.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/hrrr_service.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/location_service.dart
-file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/news_service.dart
+file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/nearby_threats.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/notification_service.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/notification_service_web.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/radar_service.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/radio_stations.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/seen_alerts.dart
-file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/severe_event_service.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/tropical_service.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/usgs_service.dart
 file:///C:/Users/Cash/Downloads/Atmos-main/Atmos-main/lib/services/weather_service.dart

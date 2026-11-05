@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:weatherapp/models/weather.dart';
+import 'package:weatherapp/services/nearby_threats.dart';
 import 'package:weatherapp/services/seen_alerts.dart';
 import 'package:weatherapp/services/tropical_service.dart';
+import 'package:weatherapp/services/usgs_service.dart';
 import 'package:weatherapp/services/weather_service.dart';
 import 'package:weatherapp/utils/astro.dart';
 import 'package:weatherapp/utils/summary.dart';
@@ -223,6 +226,95 @@ void main() {
       expect(s.moveCompass, 'N');
       expect(s.category, 2);
     });
+  });
+
+  group('NHC CurrentStorms.json', () {
+    // Shape of NHC's feed: numbers are sometimes strings.
+    const body = '''
+{"activeStorms":[
+ {"id":"al092026","name":"Isaias","classification":"HU","intensity":"95",
+  "pressure":"975","latitudeNumeric":27.4,"longitudeNumeric":-79.6,
+  "movementDir":335,"movementSpeed":12,"lastUpdate":"2026-09-01T15:00:00.000Z"},
+ {"id":"ep202026","name":"Rosa","classification":"TS","intensity":45,
+  "pressure":1000,"latitudeNumeric":"15.0","longitudeNumeric":"-110.2"},
+ {"id":"al102026","name":"Broken","classification":"TD"}
+]}''';
+
+    test('parses storms leniently and skips ones without a position', () {
+      final s = TropicalService.parseCurrentStorms(body);
+      expect(s.length, 2);
+      expect(s.first.name, 'Isaias');
+      expect(s.first.type, 'Hurricane');
+      expect(s.first.windKt, 95);
+      expect(s.first.category, 2);
+      expect(s.first.moveMph, 12);
+      expect(s.first.moveCompass, 'NNW');
+      expect(s[1].type, 'Tropical Storm');
+      expect(s[1].lat, 15.0);
+    });
+    test('empty and malformed feeds give no storms', () {
+      expect(
+        TropicalService.parseCurrentStorms('{"activeStorms":[]}'),
+        isEmpty,
+      );
+      expect(TropicalService.parseCurrentStorms('{}'), isEmpty);
+    });
+  });
+
+  group('nearby threats', () {
+    const knoxLat = 35.96, knoxLon = -83.92;
+    Earthquake q(double mag, double lat, double lon) => Earthquake(
+      mag: mag,
+      place: 'x',
+      time: DateTime.utc(2026, 11, 4),
+      location: LatLng(lat, lon),
+      tsunami: 0,
+      url: '',
+    );
+    TropicalStorm storm(String name, double lat, double lon) =>
+        TropicalService.parseCurrentStorms(
+          '{"activeStorms":[{"id":"x","name":"$name","classification":"HU",'
+          '"intensity":90,"latitudeNumeric":$lat,"longitudeNumeric":$lon}]}',
+        ).single;
+
+    test('great-circle distance', () {
+      // Knoxville → Nashville ≈ 160 mi.
+      expect(milesBetween(knoxLat, knoxLon, 36.16, -86.78), closeTo(160, 8));
+    });
+
+    test('keeps only close, significant threats, nearest first', () {
+      final n = NearbyThreats.filter(
+        knoxLat,
+        knoxLon,
+        storms: [
+          storm('Far', 15.0, -45.0), // mid-Atlantic, ~2,500 mi
+          storm('Gulf', 30.0, -86.0), // Gulf coast, ~430 mi
+        ],
+        quakes: [
+          q(6.4, -27.1, -109.3), // Easter Island — the old "closest threat"
+          q(5.2, 36.5, -89.5), // New Madrid, ~310 mi — just outside 300
+          q(5.4, 35.5, -84.5), // ~45 mi
+          q(4.8, 36.0, -84.0), // too small
+        ],
+      );
+      expect(n.storms.map((s) => s.storm.name), ['Gulf']);
+      expect(n.quakes.length, 1);
+      expect(n.quakes.single.quake.mag, 5.4);
+      expect(n.isEmpty, isFalse);
+      expect(
+        NearbyThreats.filter(knoxLat, knoxLon, storms: [], quakes: []).isEmpty,
+        isTrue,
+      );
+    });
+  });
+
+  test('USGS GeoJSON parses and skips bad features', () {
+    const body =
+        '{"features":[{"properties":{"mag":5.1,"place":"near X","time":1793800000000,"tsunami":0,"url":"u"},'
+        '"geometry":{"coordinates":[-84.1,35.8,10]}},{"properties":{}}]}';
+    final qs = UsgsService.parseGeoJson(body);
+    expect(qs.single.mag, 5.1);
+    expect(qs.single.location.latitude, 35.8);
   });
 
   group('cached weather round-trip', () {

@@ -46,12 +46,15 @@ Future<void> runAlertCheck() async {
   // The background isolate has its own plugin instance: it must be
   // initialized before show(), or show() throws and (swallowed by the
   // dispatcher) no closed-app alert is ever delivered.
-  await plugin.initialize(const InitializationSettings(
-    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-  ));
+  await plugin.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    ),
+  );
   await plugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(_channel);
 
   for (final place in places) {
@@ -83,6 +86,8 @@ Future<void> runAlertCheck() async {
   }
   if (announced.isNotEmpty) {
     await prefs.setStringList(
-        'seenAlerts', mergeSeenAlerts(existing, announced));
+      'seenAlerts',
+      mergeSeenAlerts(existing, announced),
+    );
   }
 }

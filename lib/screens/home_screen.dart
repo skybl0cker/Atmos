@@ -6,7 +6,6 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:provider/provider.dart';
 
 import '../models/weather.dart';
-import '../services/severe_event_service.dart';
 import '../state/app_state.dart';
 import '../utils/aqi.dart';
 import '../utils/astro.dart';
@@ -22,7 +21,7 @@ import '../widgets/moon_icon.dart';
 import '../widgets/nowcast_strip.dart';
 import '../widgets/pressable.dart';
 import '../widgets/scene.dart';
-import 'event_screen.dart';
+import 'alerts_screen.dart';
 import 'forecast_screen.dart';
 import 'radar_screen.dart';
 import 'radio_screen.dart';
@@ -39,8 +38,7 @@ const _shadow = [Shadow(color: Color(0x33000000), blurRadius: 16)];
 /// running vertically down the side, and a white "Weather Today" sheet
 /// that drags up to reveal details and the 10-day outlook.
 class HomeScreen extends StatefulWidget {
-  final SevereEvent? event;
-  const HomeScreen({super.key, this.event});
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -156,12 +154,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _Sheet(
                         scroll: _panelScroll,
                         s: s,
-                        event: widget.event,
                         docked: true,
                         showDaily: !threeCol,
                         onRadar: () => _openRadar(s),
                         onForecast: () => _push(const ForecastScreen()),
-                        onAlerts: () => _push(const EventScreen()),
+                        onAlerts: () => _push(const AlertsScreen()),
                         onRadio: () => _push(const RadioScreen()),
                       ),
                     ),
@@ -254,10 +251,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (ctx, scroll) => _Sheet(
                   scroll: scroll,
                   s: s,
-                  event: widget.event,
                   onRadar: () => _openRadar(s),
                   onForecast: () => _push(const ForecastScreen()),
-                  onAlerts: () => _push(const EventScreen()),
+                  onAlerts: () => _push(const AlertsScreen()),
                   onRadio: () => _push(const RadioScreen()),
                   onHandleTap: () {
                     final open = _expand.value > 0.5;
@@ -544,7 +540,6 @@ class _Hero extends StatelessWidget {
 class _Sheet extends StatelessWidget {
   final ScrollController scroll;
   final AppState s;
-  final SevereEvent? event;
   final VoidCallback onRadar, onForecast, onAlerts, onRadio;
   final VoidCallback? onHandleTap;
 
@@ -558,7 +553,6 @@ class _Sheet extends StatelessWidget {
   const _Sheet({
     required this.scroll,
     required this.s,
-    required this.event,
     required this.onRadar,
     required this.onForecast,
     required this.onAlerts,
@@ -572,7 +566,6 @@ class _Sheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final pal = SheetPalette.of(context);
     final d = s.data;
-    final ev = (event != null && event!.kind != SevereKind.none) ? event : null;
     final bottom = docked ? 0.0 : MediaQuery.paddingOf(context).bottom;
     final radius = docked
         ? BorderRadius.circular(32)
@@ -660,15 +653,17 @@ class _Sheet extends StatelessWidget {
                       pal,
                       onForecast,
                     ),
+                    // Always "Alerts"; the dot means something affects
+                    // *this* place (an NWS alert or a nearby storm/quake).
                     _Action(
-                      ev != null
-                          ? ev.tabIcon
+                      s.hasAlerts
+                          ? Icons.notifications_active_rounded
                           : Icons.notifications_none_rounded,
-                      ev != null ? ev.tabLabel : 'Alerts',
-                      ev != null ? ev.color : const Color(0xFFFF7A59),
+                      'Alerts',
+                      const Color(0xFFFF7A59),
                       pal,
                       onAlerts,
-                      badge: ev != null || s.alerts.isNotEmpty,
+                      badge: s.hasAlerts,
                     ),
                     _Action(
                       Icons.radio_rounded,

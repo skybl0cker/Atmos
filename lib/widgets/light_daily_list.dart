@@ -48,74 +48,87 @@ class _LightDailyListState extends State<LightDailyList> {
                     child: Text(
                       i == 0 ? 'Today' : DateFormat.E().format(days[i].date),
                       style: TextStyle(
-                          color: pal.ink,
-                          fontSize: 15,
-                          fontWeight:
-                              i == 0 ? FontWeight.w600 : FontWeight.w400),
+                        color: pal.ink,
+                        fontSize: 15,
+                        fontWeight: i == 0 ? FontWeight.w600 : FontWeight.w400,
+                      ),
                     ),
                   ),
-                  ArtIcon(days[i].code,
-                      day: true, size: 30, onDark: pal.dark),
+                  ArtIcon(days[i].code, day: true, size: 30, onDark: pal.dark),
                   SizedBox(
                     width: 44,
                     child: Text(
                       days[i].precipProb >= 20 ? '${days[i].precipProb}%' : '',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                          color: Color(0xFF3D9BFF),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600),
+                        color: Color(0xFF3D9BFF),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   SizedBox(
                     width: 34,
-                    child: Text(s.temp(days[i].minC),
-                        textAlign: TextAlign.right,
-                        style: TextStyle(color: pal.soft, fontSize: 14)),
+                    child: Text(
+                      s.temp(days[i].minC),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(color: pal.soft, fontSize: 14),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: LayoutBuilder(builder: (_, box) {
-                      final w = box.maxWidth;
-                      final left = (days[i].minC - lo) / range * w;
-                      final width = math.max(
-                          (days[i].maxC - days[i].minC) / range * w, 8.0);
-                      return Container(
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: pal.track,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Stack(children: [
-                          Positioned(
-                            left: left
-                                .clamp(0.0, math.max(w - 8, 0.0))
-                                .toDouble(),
-                            width: width,
-                            top: 0,
-                            bottom: 0,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(3),
-                                gradient: LinearGradient(colors: [
-                                  tempColor(days[i].minC),
-                                  tempColor(days[i].maxC),
-                                ]),
-                              ),
-                            ),
+                    child: LayoutBuilder(
+                      builder: (_, box) {
+                        final w = box.maxWidth;
+                        final left = (days[i].minC - lo) / range * w;
+                        final width = math.max(
+                          (days[i].maxC - days[i].minC) / range * w,
+                          8.0,
+                        );
+                        return Container(
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: pal.track,
+                            borderRadius: BorderRadius.circular(3),
                           ),
-                        ]),
-                      );
-                    }),
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                left: left
+                                    .clamp(0.0, math.max(w - 8, 0.0))
+                                    .toDouble(),
+                                width: width,
+                                top: 0,
+                                bottom: 0,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(3),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        tempColor(days[i].minC),
+                                        tempColor(days[i].maxC),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(width: 10),
                   SizedBox(
                     width: 34,
-                    child: Text(s.temp(days[i].maxC),
-                        style: TextStyle(
-                            color: pal.ink,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600)),
+                    child: Text(
+                      s.temp(days[i].maxC),
+                      style: TextStyle(
+                        color: pal.ink,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -127,16 +140,34 @@ class _LightDailyListState extends State<LightDailyList> {
             child: _open == i
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-                    child: Row(children: [
-                      _fact(pal, Icons.wb_twilight_rounded, 'Sunrise',
-                          DateFormat.jm().format(days[i].sunrise)),
-                      _fact(pal, Icons.nights_stay_outlined, 'Sunset',
-                          DateFormat.jm().format(days[i].sunset)),
-                      _fact(pal, Icons.wb_sunny_outlined, 'UV',
-                          days[i].uv.round().toString()),
-                      _fact(pal, Icons.water_drop_outlined, 'Rain',
-                          '${days[i].precipProb}%'),
-                    ]),
+                    child: Row(
+                      children: [
+                        _fact(
+                          pal,
+                          Icons.wb_twilight_rounded,
+                          'Sunrise',
+                          DateFormat.jm().format(days[i].sunrise),
+                        ),
+                        _fact(
+                          pal,
+                          Icons.nights_stay_outlined,
+                          'Sunset',
+                          DateFormat.jm().format(days[i].sunset),
+                        ),
+                        _fact(
+                          pal,
+                          Icons.wb_sunny_outlined,
+                          'UV',
+                          days[i].uv.round().toString(),
+                        ),
+                        _fact(
+                          pal,
+                          Icons.water_drop_outlined,
+                          'Rain',
+                          '${days[i].precipProb}%',
+                        ),
+                      ],
+                    ),
                   )
                 : const SizedBox(width: double.infinity),
           ),
@@ -154,15 +185,22 @@ class _LightDailyListState extends State<LightDailyList> {
           color: pal.card,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Column(children: [
-          Icon(icon, size: 16, color: pal.soft),
-          const SizedBox(height: 4),
-          Text(value,
+        child: Column(
+          children: [
+            Icon(icon, size: 16, color: pal.soft),
+            const SizedBox(height: 4),
+            Text(
+              value,
               maxLines: 1,
               style: TextStyle(
-                  color: pal.ink, fontSize: 13, fontWeight: FontWeight.w600)),
-          Text(label, style: TextStyle(color: pal.soft, fontSize: 10)),
-        ]),
+                color: pal.ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(label, style: TextStyle(color: pal.soft, fontSize: 10)),
+          ],
+        ),
       ),
     );
   }

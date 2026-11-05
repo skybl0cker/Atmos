@@ -42,21 +42,22 @@ class HrrrService {
     final minFMin = t.difference(init).inMinutes;
     final frames = <HrrrFrame>[];
     for (var off = 0; off <= 360; off += 30) {
-      final fMin =
-          ((minFMin + off) / 15).round() * 15;
+      final fMin = ((minFMin + off) / 15).round() * 15;
       if (fMin < 15 || fMin > 1080) continue;
       // Skip frames that would duplicate "now" — start the future cleanly.
       if (off == 0 && fMin - minFMin < 15) continue;
       final f = fMin.toString().padLeft(4, '0');
       final leadMin = fMin - minFMin;
       if (leadMin < 15) continue;
-      frames.add(HrrrFrame(
-        label: leadMin < 120 ? '+$leadMin min' : '+${leadMin ~/ 60} hr',
-        urlTemplate:
-            'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/'
-            'hrrr::REFD-F$f-$initStr/{z}/{x}/{y}.png',
-        validTime: init.add(Duration(minutes: fMin)),
-      ));
+      frames.add(
+        HrrrFrame(
+          label: leadMin < 120 ? '+$leadMin min' : '+${leadMin ~/ 60} hr',
+          urlTemplate:
+              'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/'
+              'hrrr::REFD-F$f-$initStr/{z}/{x}/{y}.png',
+          validTime: init.add(Duration(minutes: fMin)),
+        ),
+      );
     }
     return frames;
   }
@@ -64,9 +65,7 @@ class HrrrService {
   /// Latest fully-processed HRRR run, per IEM's own metadata.
   static Future<DateTime?> _latestRun() async {
     try {
-      final r = await http
-          .get(Uri.parse(_meta))
-          .timeout(_timeout);
+      final r = await http.get(Uri.parse(_meta)).timeout(_timeout);
       if (r.statusCode != 200) return null;
       final j = jsonDecode(r.body) as Map<String, dynamic>;
       final s = j['model_init_utc'] as String?;

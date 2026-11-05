@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 import '../models/alert.dart';
 
 class NotificationService {
@@ -25,11 +26,13 @@ class NotificationService {
     await init(); // no-op if already initialized
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
     await _plugin
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
+          IOSFlutterLocalNotificationsPlugin
+        >()
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
@@ -44,7 +47,11 @@ class NotificationService {
       ),
       iOS: DarwinNotificationDetails(),
     );
-    await _plugin.show(a.id.hashCode, a.event,
-        a.headline.isNotEmpty ? a.headline : a.areas, details);
+    await _plugin.show(
+      a.id.hashCode,
+      a.event,
+      a.headline.isNotEmpty ? a.headline : a.areas,
+      details,
+    );
   }
 }

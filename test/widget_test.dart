@@ -9,6 +9,9 @@ import 'package:weatherapp/models/weather.dart';
 import 'package:weatherapp/screens/alerts_screen.dart';
 import 'package:weatherapp/screens/forecast_screen.dart';
 import 'package:weatherapp/screens/home_screen.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:weatherapp/services/nearby_threats.dart';
+import 'package:weatherapp/services/usgs_service.dart';
 import 'package:weatherapp/services/weather_service.dart';
 import 'package:weatherapp/state/app_state.dart';
 
@@ -145,7 +148,7 @@ void main() {
         areas: 'Knox',
       ),
     ];
-    await tester.pumpWidget(host(s, const AlertsScreen()));
+    await tester.pumpWidget(host(s, const AlertsScreen(refreshOnOpen: false)));
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Tornado Warning'), findsOneWidget);
@@ -157,6 +160,61 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Gusts to 45 mph.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('alerts screen: all clear explains what was checked', (
+    tester,
+  ) async {
+    final s = await makeState();
+    s.selected = knox;
+    await tester.pumpWidget(host(s, const AlertsScreen(refreshOnOpen: false)));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('All clear'), findsOneWidget);
+    expect(find.textContaining('within 500 mi'), findsOneWidget);
+    expect(find.text('Nearby'.toUpperCase()), findsNothing);
+  });
+
+  testWidgets('alerts screen shows a nearby quake even with no NWS alerts', (
+    tester,
+  ) async {
+    final s = await makeState();
+    s.selected = knox;
+    s.nearby = NearbyThreats(
+      quakes: [
+        NearbyQuake(
+          Earthquake(
+            mag: 5.4,
+            place: '10 km S of Maryville, TN',
+            time: DateTime.now().toUtc().subtract(const Duration(hours: 3)),
+            location: const LatLng(35.6, -83.97),
+            tsunami: 0,
+            url: '',
+          ),
+          24,
+        ),
+      ],
+    );
+    expect(s.hasAlerts, isTrue); // drives the badge on the home button
+    await tester.pumpWidget(host(s, const AlertsScreen(refreshOnOpen: false)));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('NEARBY'), findsOneWidget);
+    expect(find.text('Earthquake · 24 mi away'), findsOneWidget);
+    expect(find.textContaining('3 hr ago'), findsOneWidget);
+    expect(
+      find.text('No watches or warnings for this location.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home Alerts button is always labelled "Alerts"', (tester) async {
+    final s = await makeState();
+    s.selected = knox;
+    s.data = WeatherService.parse(forecastBody(), null);
+    await tester.pumpWidget(host(s, const HomeScreen()));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Alerts'), findsOneWidget);
+    expect(find.text('Quake'), findsNothing);
   });
 
   testWidgets('home shows a retry notice when a refresh fails over old data', (
@@ -355,7 +413,11 @@ void main() {
 
     testWidgets('secondary screens center on wide windows', (t) async {
       final s = await withData();
-      await pumpAt(t, const Size(1440, 900), host(s, const AlertsScreen()));
+      await pumpAt(
+        t,
+        const Size(1440, 900),
+        host(s, const AlertsScreen(refreshOnOpen: false)),
+      );
       final card = t.getSize(find.byType(ClipRRect).first);
       expect(card.width, lessThanOrEqualTo(760));
       expect(t.takeException(), isNull);

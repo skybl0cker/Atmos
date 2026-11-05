@@ -12,9 +12,10 @@ class LocationService {
   /// Names that are technically correct but useless to a human — e.g.
   /// BigDataCloud reports unincorporated Knox County as "District 6".
   /// Places carrying one of these get re-resolved on next launch.
-  static final _junkName =
-      RegExp(r'^(district|precinct|ward|census tract|tract)\s+[\d.]+$',
-          caseSensitive: false);
+  static final _junkName = RegExp(
+    r'^(district|precinct|ward|census tract|tract)\s+[\d.]+$',
+    caseSensitive: false,
+  );
 
   static bool isPlaceholderName(String name) =>
       name == placeholderName || _junkName.hasMatch(name.trim());
@@ -32,7 +33,8 @@ class LocationService {
     }
     if (perm == LocationPermission.deniedForever) {
       throw Exception(
-          'Location permission is blocked. Enable it in system settings.');
+        'Location permission is blocked. Enable it in system settings.',
+      );
     }
     final pos = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
@@ -73,11 +75,16 @@ class LocationService {
         'zoom': '13', // community/suburb level
         'addressdetails': '1',
       });
-      final res = await http.get(uri, headers: {
-        // Nominatim usage policy requires an identifying User-Agent.
-        'User-Agent':
-            'AtmosWeatherApp/1.0 (https://github.com/skybl0cker/Atmos)',
-      }).timeout(const Duration(seconds: 8));
+      final res = await http
+          .get(
+            uri,
+            headers: {
+              // Nominatim usage policy requires an identifying User-Agent.
+              'User-Agent':
+                  'AtmosWeatherApp/1.0 (https://github.com/skybl0cker/Atmos)',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) return null;
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       final addr = j['address'] as Map<String, dynamic>?;
@@ -102,13 +109,15 @@ class LocationService {
       }
       if (name == null) return null;
 
-      final countryCode =
-          (addr['country_code'] as String?)?.trim().toUpperCase();
+      final countryCode = (addr['country_code'] as String?)
+          ?.trim()
+          .toUpperCase();
       if (countryCode == 'US') {
         // ISO3166-2-lvl4 looks like "US-TN".
         final iso = addr['ISO3166-2-lvl4'] as String?;
-        final state =
-            (iso != null && iso.contains('-')) ? iso.split('-').last : null;
+        final state = (iso != null && iso.contains('-'))
+            ? iso.split('-').last
+            : null;
         if (state != null && state.isNotEmpty) return '$name, $state';
         return name;
       }
@@ -126,8 +135,7 @@ class LocationService {
     try {
       // api-bdc.io is BigDataCloud's current host (api.bigdatacloud.net
       // 307-redirects here); calling it directly skips the redirect hop.
-      final uri =
-          Uri.https('api-bdc.io', '/data/reverse-geocode-client', {
+      final uri = Uri.https('api-bdc.io', '/data/reverse-geocode-client', {
         'latitude': '$lat',
         'longitude': '$lon',
         'localityLanguage': 'en',
@@ -147,8 +155,9 @@ class LocationService {
       if (j['countryCode'] == 'US') {
         // principalSubdivisionCode looks like "US-TN".
         final sub = j['principalSubdivisionCode'] as String?;
-        final state =
-            (sub != null && sub.contains('-')) ? sub.split('-').last : null;
+        final state = (sub != null && sub.contains('-'))
+            ? sub.split('-').last
+            : null;
         if (state != null && state.isNotEmpty) return '$city, $state';
         return city;
       }

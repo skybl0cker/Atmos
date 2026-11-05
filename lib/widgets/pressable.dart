@@ -77,8 +77,11 @@ class Reveal extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: Duration(milliseconds: total),
-      curve: Interval(delay.inMilliseconds / total, 1,
-          curve: Curves.easeOutCubic),
+      curve: Interval(
+        delay.inMilliseconds / total,
+        1,
+        curve: Curves.easeOutCubic,
+      ),
       builder: (_, t, child) => Opacity(
         opacity: t,
         child: Transform.translate(

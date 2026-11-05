@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../screens/alerts_screen.dart';
 import '../state/app_state.dart';
 
@@ -12,7 +13,9 @@ class AlertBanner extends StatelessWidget {
     if (alerts.isEmpty) return const SizedBox.shrink();
 
     final worst = alerts.reduce((a, b) => a.isSevere ? a : b);
-    final color = worst.isSevere ? const Color(0xFFD32F2F) : const Color(0xFFF57C00);
+    final color = worst.isSevere
+        ? const Color(0xFFD32F2F)
+        : const Color(0xFFF57C00);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -43,10 +46,18 @@ class AlertBanner extends StatelessWidget {
                             ? worst.event
                             : '${worst.event} + ${alerts.length - 1} more',
                         style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
                       ),
-                      Text('Tap for details',
-                          style: TextStyle(color: Colors.white.withAlpha(220), fontSize: 12)),
+                      Text(
+                        'Tap for details',
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(220),
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),

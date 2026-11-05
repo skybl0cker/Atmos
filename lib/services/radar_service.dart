@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
+
 import 'package:http/http.dart' as http;
+
 import 'hrrr_service.dart';
 
 /// Precipitation radar from RainViewer (rainviewer.com) — free, no API key,
@@ -42,19 +44,17 @@ class RadarFrame {
     this.estimated = false,
     this.leadMinutes = 0,
     this.isModel = false,
-  })  : _path = path, // ignore: prefer_initializing_formals
-        _tileTemplate = null;
+  }) : _path = path, // ignore: prefer_initializing_formals
+       _tileTemplate = null;
 
-  const RadarFrame.hrrr({
-    required this.label,
-    required String template,
-  })  : isForecast = true,
-        estimated = false,
-        leadMinutes = 0,
-        isModel = true,
-        timeUtc = 0,
-        _path = '',
-        _tileTemplate = template;
+  const RadarFrame.hrrr({required this.label, required String template})
+    : isForecast = true,
+      estimated = false,
+      leadMinutes = 0,
+      isModel = true,
+      timeUtc = 0,
+      _path = '',
+      _tileTemplate = template;
 
   /// Universal Blue color scheme, smoothed.
   String get tileUrl =>
@@ -105,16 +105,16 @@ class RadarService {
     final radar =
         (jsonDecode(r.body) as Map<String, dynamic>)['radar']
             as Map<String, dynamic>;
-    final past =
-        (radar['past'] as List).cast<Map<String, dynamic>>();
-    final nowcast =
-        ((radar['nowcast'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final past = (radar['past'] as List).cast<Map<String, dynamic>>();
+    final nowcast = ((radar['nowcast'] as List?) ?? [])
+        .cast<Map<String, dynamic>>();
     if (past.isEmpty) throw Exception('Radar service returned no frames');
 
     final recent = past.length > 8 ? past.sublist(past.length - 8) : past;
     final anchor = DateTime.fromMillisecondsSinceEpoch(
-        (recent.last['time'] as int) * 1000,
-        isUtc: true);
+      (recent.last['time'] as int) * 1000,
+      isUtc: true,
+    );
 
     final frames = <RadarFrame>[
       for (final f in recent)
@@ -146,7 +146,9 @@ class RadarService {
   /// Appends HRRR simulated-reflectivity model frames — the single unified
   /// "future radar". Never duplicates.
   static List<RadarFrame> addHrrrForecast(
-      List<RadarFrame> frames, List<HrrrFrame> hrrr) {
+    List<RadarFrame> frames,
+    List<HrrrFrame> hrrr,
+  ) {
     if (frames.any((f) => f.isModel) || hrrr.isEmpty) return frames;
     return [
       ...frames,
@@ -156,16 +158,20 @@ class RadarService {
   }
 
   static String _agoLabel(DateTime anchor, Map<String, dynamic> f) {
-    final t = DateTime.fromMillisecondsSinceEpoch((f['time'] as int) * 1000,
-        isUtc: true);
+    final t = DateTime.fromMillisecondsSinceEpoch(
+      (f['time'] as int) * 1000,
+      isUtc: true,
+    );
     final m = anchor.difference(t).inMinutes;
     if (m <= 2) return 'Now';
     return '$m min ago';
   }
 
   static String _futureLabel(DateTime anchor, Map<String, dynamic> f) {
-    final t = DateTime.fromMillisecondsSinceEpoch((f['time'] as int) * 1000,
-        isUtc: true);
+    final t = DateTime.fromMillisecondsSinceEpoch(
+      (f['time'] as int) * 1000,
+      isUtc: true,
+    );
     final m = t.difference(anchor).inMinutes;
     return '+$m min';
   }

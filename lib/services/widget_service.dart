@@ -7,7 +7,10 @@ import '../utils/weather_codes.dart';
 /// platform channel to AtmosWidgetProvider. No-op on other platforms or if
 /// the native side isn't available.
 Future<void> updateAtmosWidget(
-    WeatherData data, String placeName, bool imperial) async {
+  WeatherData data,
+  String placeName,
+  bool imperial,
+) async {
   try {
     final c = data.current;
     final today = data.daily.isNotEmpty ? data.daily.first : null;
@@ -17,19 +20,17 @@ Future<void> updateAtmosWidget(
     final hi = today == null
         ? ''
         : imperial
-            ? 'H ${(today.maxC * 9 / 5 + 32).round()}°  L ${(today.minC * 9 / 5 + 32).round()}°'
-            : 'H ${today.maxC.round()}°  L ${today.minC.round()}°';
+        ? 'H ${(today.maxC * 9 / 5 + 32).round()}°  L ${(today.minC * 9 / 5 + 32).round()}°'
+        : 'H ${today.maxC.round()}°  L ${today.minC.round()}°';
 
-    await const MethodChannel('com.skybl0cker.atmos/widget').invokeMethod(
-      'updateWidget',
-      {
-        'place': placeName,
-        'temp': t,
-        'icon': _emoji(c.code, c.isDay),
-        'condition': describe(c.code),
-        'hilo': hi,
-      },
-    );
+    await const MethodChannel('com.skybl0cker.atmos/widget')
+        .invokeMethod('updateWidget', {
+          'place': placeName,
+          'temp': t,
+          'icon': _emoji(c.code, c.isDay),
+          'condition': describe(c.code),
+          'hilo': hi,
+        });
   } catch (_) {
     // Widget may not be installed; never break the app over it.
   }

@@ -63,6 +63,24 @@ driven in a phone-sized browser.
     in a 760 dp card over the full-window painting.
 - Tests: 43/43 (adds day/night and phone/foldable/tablet/desktop layout tests).
 
+## Follow-up: threats page replaced (same day)
+
+The old "Severe Weather" page ranked the biggest events anywhere (its
+"closest threat" was a quake near Easter Island, 5,060 mi away), relabelled
+the home button "Quake" most weeks, and scraped the NHC homepage HTML.
+
+- **Removed**: the page, the national NWS sweep, worldwide quake ranking,
+  Google News feed (archived in `removed_threats_page_archive.zip`).
+- **Alerts button** now always says "Alerts" and opens the local Alerts
+  screen; the red dot means something affects *this* place.
+- **Alerts screen**: the place's NWS alerts, plus a **Nearby** section shown
+  only when something is close: tropical cyclones within 500 mi (with track
+  map) and M5+ earthquakes within 300 mi over the past week (tap for USGS).
+- **Hurricanes** now come from NHC's official `CurrentStorms.json` feed
+  (track trail from the official b-deck files). Not available on the web
+  build (NHC sends no CORS headers); fine on Android/iOS. Quakes work on web.
+- Tests: 51/51.
+
 ## Running the checks
 
 With Flutter on PATH:

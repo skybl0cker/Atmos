@@ -38,8 +38,7 @@ class StormMap extends StatelessWidget {
           ),
           children: [
             TileLayer(
-              urlTemplate:
-                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.skybl0cker.atmos',
             ),
             if (warningPolygons.isNotEmpty)
@@ -57,11 +56,7 @@ class StormMap extends StatelessWidget {
             if (trail.length > 1)
               PolylineLayer(
                 polylines: [
-                  Polyline(
-                    points: trail,
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ),
+                  Polyline(points: trail, color: Colors.white, strokeWidth: 3),
                   Polyline(
                     points: trail,
                     color: Colors.lightBlueAccent,
@@ -69,64 +64,33 @@ class StormMap extends StatelessWidget {
                   ),
                 ],
               ),
-            MarkerLayer(markers: [
-              Marker(
-                point: position,
-                width: 44,
-                height: 44,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: Colors.white, width: 3),
-                    boxShadow: const [
-                      BoxShadow(
-                          color: Colors.black54, blurRadius: 6)
-                    ],
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: position,
+                  width: 44,
+                  height: 44,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black54, blurRadius: 6),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.cyclone,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
-                  child: const Icon(Icons.cyclone,
-                      color: Colors.white, size: 24),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 }
-
-/// Converts NWS alert GeoJSON geometry to flutter_map polygon rings.
-List<List<LatLng>> warningRings(List<Map<String, dynamic>> features) {
-  final rings = <List<LatLng>>[];
-  for (final f in features) {
-    final geom =
-        (f['geometry'] as Map?)?.cast<String, dynamic>();
-    if (geom == null) continue;
-    final type = geom['type'] as String?;
-    final coords = geom['coordinates'] as List?;
-    if (coords == null) continue;
-    try {
-      if (type == 'Polygon') {
-        for (final ring in coords) {
-          rings.add(_ring(ring as List));
-        }
-      } else if (type == 'MultiPolygon') {
-        for (final poly in coords) {
-          for (final ring in (poly as List)) {
-            rings.add(_ring(ring as List));
-          }
-        }
-      }
-    } catch (_) {
-      continue;
-    }
-  }
-  return rings;
-}
-
-List<LatLng> _ring(List coords) => [
-      for (final p in coords)
-        LatLng(p[1].toDouble(), p[0].toDouble()),
-    ];

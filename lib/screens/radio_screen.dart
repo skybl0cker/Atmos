@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+
 import '../services/radio_stations.dart';
 import '../widgets/scene.dart';
 import '../widgets/scene_page.dart';
@@ -62,11 +63,13 @@ class _RadioScreenState extends State<RadioScreen> {
     final filtered = q.isEmpty
         ? radioStations
         : radioStations
-            .where((s) =>
-                s.city.toLowerCase().contains(q) ||
-                s.state.toLowerCase().contains(q) ||
-                s.callsign.toLowerCase().contains(q))
-            .toList();
+              .where(
+                (s) =>
+                    s.city.toLowerCase().contains(q) ||
+                    s.state.toLowerCase().contains(q) ||
+                    s.callsign.toLowerCase().contains(q),
+              )
+              .toList();
 
     return ScenePage(
       title: 'Weather Radio',
@@ -82,11 +85,7 @@ class _RadioScreenState extends State<RadioScreen> {
         curve: Curves.easeOutCubic,
         child: _current == null
             ? const SizedBox(width: double.infinity)
-            : _NowPlaying(
-                station: _current!,
-                loading: _loading,
-                onStop: _stop,
-              ),
+            : _NowPlaying(station: _current!, loading: _loading, onStop: _stop),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(0, 16, 0, 24),
@@ -101,15 +100,17 @@ class _RadioScreenState extends State<RadioScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline_rounded,
-                    size: 18, color: _accent),
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: _accent,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Volunteer-relayed feeds, not official NOAA streams. Can lag up to 2 min '
                     '— not a substitute for a real weather alert radio.',
-                    style: TextStyle(
-                        fontSize: 12, height: 1.4, color: pal.ink),
+                    style: TextStyle(fontSize: 12, height: 1.4, color: pal.ink),
                   ),
                 ),
               ],
@@ -118,9 +119,10 @@ class _RadioScreenState extends State<RadioScreen> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              child: Text(_error!,
-                  style: const TextStyle(
-                      color: Color(0xFFFF4D5E), fontSize: 13)),
+              child: Text(
+                _error!,
+                style: const TextStyle(color: Color(0xFFFF4D5E), fontSize: 13),
+              ),
             ),
           SheetLabel(q.isEmpty ? 'All stations' : '${filtered.length} matches'),
           for (final s in filtered)
@@ -136,24 +138,35 @@ class _RadioScreenState extends State<RadioScreen> {
               highlighted: _current?.callsign == s.callsign,
               trailing: _current?.callsign == s.callsign
                   ? (_loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: _accent))
-                      : const Icon(Icons.stop_circle_rounded,
-                          color: _accent, size: 28))
-                  : Icon(Icons.play_circle_outline_rounded,
-                      color: pal.faint, size: 28),
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _accent,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.stop_circle_rounded,
+                            color: _accent,
+                            size: 28,
+                          ))
+                  : Icon(
+                      Icons.play_circle_outline_rounded,
+                      color: pal.faint,
+                      size: 28,
+                    ),
               onTap: () =>
                   _current?.callsign == s.callsign ? _stop() : _play(s),
             ),
           if (filtered.isEmpty)
             Padding(
               padding: const EdgeInsets.all(32),
-              child: Text('No stations match "$q".',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: pal.soft)),
+              child: Text(
+                'No stations match "$q".',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: pal.soft),
+              ),
             ),
         ],
       ),
@@ -166,8 +179,11 @@ class _NowPlaying extends StatelessWidget {
   final RadioStation station;
   final bool loading;
   final VoidCallback onStop;
-  const _NowPlaying(
-      {required this.station, required this.loading, required this.onStop});
+  const _NowPlaying({
+    required this.station,
+    required this.loading,
+    required this.onStop,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -182,12 +198,14 @@ class _NowPlaying extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(26),
             gradient: const LinearGradient(
-                colors: [Color(0xFF7C6CFF), Color(0xFF4F8DFF)]),
+              colors: [Color(0xFF7C6CFF), Color(0xFF4F8DFF)],
+            ),
             boxShadow: [
               BoxShadow(
-                  color: _accent.withAlpha(80),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6)),
+                color: _accent.withAlpha(80),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
             ],
           ),
           child: Row(
@@ -197,23 +215,33 @@ class _NowPlaying extends StatelessWidget {
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const _Equalizer(),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(loading ? 'Connecting…' : 'Now playing',
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 11)),
-                    Text(station.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      loading ? 'Connecting…' : 'Now playing',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                    Text(
+                      station.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -222,7 +250,8 @@ class _NowPlaying extends StatelessWidget {
                 onPressed: onStop,
                 icon: const Icon(Icons.stop_rounded, color: Colors.white),
                 style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withAlpha(50)),
+                  backgroundColor: Colors.white.withAlpha(50),
+                ),
               ),
             ],
           ),
@@ -242,8 +271,9 @@ class _Equalizer extends StatefulWidget {
 class _EqualizerState extends State<_Equalizer>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 900))
-    ..repeat();
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
 
   @override
   void dispose() {
@@ -265,11 +295,11 @@ class _EqualizerState extends State<_Equalizer>
             for (var i = 0; i < 4; i++)
               Container(
                 width: 3.5,
-                height: 6 +
+                height:
+                    6 +
                     14 *
                         (0.5 +
-                            0.5 *
-                                math.sin(_c.value * 2 * math.pi + i * 1.7)),
+                            0.5 * math.sin(_c.value * 2 * math.pi + i * 1.7)),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(2),
