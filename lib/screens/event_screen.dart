@@ -11,6 +11,7 @@ import '../services/severe_event_service.dart';
 import '../services/tropical_service.dart';
 import '../services/usgs_service.dart';
 import '../state/app_state.dart';
+import '../widgets/scene_page.dart';
 import '../widgets/storm_map.dart';
 
 /// Situation room: the 4th tab. Threats are ranked by distance from the
@@ -163,26 +164,54 @@ class _EventScreenState extends State<EventScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
+                // Stormy violet wash over the rain painting, deepening
+                // toward the bottom so the cards stay readable.
                 colors: [
-                  Colors.black.withAlpha(110),
-                  Colors.black.withAlpha(190),
+                  const Color(0xFF3A2E86).withAlpha(150),
+                  const Color(0xFF1E1748).withAlpha(215),
+                  const Color(0xFF120E2A).withAlpha(240),
                 ],
+                stops: const [0, 0.45, 1],
               ),
             ),
           ),
         ),
-        Scaffold(
-          backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          title: const Text('Severe Weather'),
-          actions: [
-            IconButton(
-              tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh),
-              onPressed: _load,
+        // This page is designed light-on-dark over the storm scene, so pin
+        // a dark theme here regardless of the app's light/dark setting.
+        Theme(
+          data: ThemeData(
+            useMaterial3: true,
+            colorSchemeSeed: const Color(0xFF7C4DFF),
+            brightness: Brightness.dark,
+            fontFamily: 'Poppins',
+            cardColor: const Color(0xFF1D1540),
+            cardTheme: CardThemeData(
+              color: Colors.white.withAlpha(22),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: Colors.white.withAlpha(30)),
+              ),
             ),
-          ],
+          ),
+          child: Scaffold(
+          backgroundColor: Colors.transparent,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(66),
+          child: SafeArea(
+            bottom: false,
+            child: PageHeader(
+              title: 'Severe Weather',
+              subtitle: context.watch<AppState>().selected?.name,
+              actions: [
+                RoundIconButton(
+                  icon: Icons.refresh_rounded,
+                  tooltip: 'Refresh',
+                  onTap: _load,
+                ),
+              ],
+            ),
+          ),
         ),
       body: event == null
           ? Center(
@@ -226,6 +255,7 @@ class _EventScreenState extends State<EventScreen> {
               ),
             ),
       ),
+        ),
       ],
     );
   }

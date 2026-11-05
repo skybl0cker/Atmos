@@ -42,7 +42,7 @@ class RadarFrame {
     this.estimated = false,
     this.leadMinutes = 0,
     this.isModel = false,
-  })  : _path = path,
+  })  : _path = path, // ignore: prefer_initializing_formals
         _tileTemplate = null;
 
   const RadarFrame.hrrr({

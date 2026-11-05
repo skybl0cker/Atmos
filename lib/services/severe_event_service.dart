@@ -237,9 +237,11 @@ class SevereEventService {
       title: 'Hurricane ${s.name}',
       headline:
           '${s.categoryLabel} · ${s.windMph} mph sustained',
+      // Central Pacific storms can sit east of the dateline, so label the
+      // hemisphere instead of assuming °N / °W.
       areas:
-          'Last position ${s.lat.toStringAsFixed(1)}°N '
-          '${s.lon.abs().toStringAsFixed(1)}°W',
+          'Last position ${s.lat.abs().toStringAsFixed(1)}°${s.lat >= 0 ? 'N' : 'S'} '
+          '${s.lon.abs().toStringAsFixed(1)}°${s.lon <= 0 ? 'W' : 'E'}',
       description:
           'Hurricane ${s.name} is a ${s.categoryLabel.toLowerCase()} '
           'with ${s.windMph} mph sustained winds and a central '

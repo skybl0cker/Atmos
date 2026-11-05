@@ -67,7 +67,24 @@ IconData iconFor(int code, {bool day = true}) {
   return Icons.cloud;
 }
 
+/// Rough daytime test (6 AM – 8 PM) for when real sun times are unknown.
+/// Prefer [isDaylightAt], which uses the forecast's sunrise and sunset.
 bool isDayHour(DateTime t) => t.hour >= 6 && t.hour < 20;
+
+/// Whether [t] falls between sunrise and sunset, using the daily forecast's
+/// sun times for that calendar day. Falls back to [isDayHour] when the day
+/// isn't in the forecast.
+bool isDaylightAt(
+    DateTime t, Iterable<({DateTime sunrise, DateTime sunset})> days) {
+  for (final d in days) {
+    if (d.sunrise.year == t.year &&
+        d.sunrise.month == t.month &&
+        d.sunrise.day == t.day) {
+      return !t.isBefore(d.sunrise) && t.isBefore(d.sunset);
+    }
+  }
+  return isDayHour(t);
+}
 
 /// True when the (possibly synthesized) code is any kind of rain or drizzle.
 bool isRainCode(int code) =>

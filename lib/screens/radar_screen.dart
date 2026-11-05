@@ -1,15 +1,17 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 import '../models/weather.dart';
 import '../services/hrrr_service.dart';
 import '../services/radar_service.dart';
-import '../state/app_state.dart';
 import '../utils/radar_legend.dart';
+import '../widgets/nowcast_strip.dart';
+import '../widgets/scene.dart';
+import '../widgets/scene_page.dart';
+
+const _accent = Color(0xFF6C63FF);
 
 // Change this to match your applicationId when you rename the app.
 const _userAgent = 'com.skybl0cker.atmos';
@@ -158,7 +160,7 @@ class _RadarScreenState extends State<RadarScreen> {
     }
   }
 
-  String _speedLabel(double v) => v % 1 == 0 ? '${v.toInt()}×' : '${v}×';
+  String _speedLabel(double v) => v % 1 == 0 ? '${v.toInt()}×' : '$v×';
 
   /// Badge for the current frame: observed past has no badge, and HRRR
   /// simulated reflectivity is MODEL.
@@ -173,365 +175,382 @@ class _RadarScreenState extends State<RadarScreen> {
   Widget build(BuildContext context) {
     final p = widget.place;
     final center = LatLng(p.lat, p.lon);
+    final pal = SheetPalette.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Radar · ${p.name}'),
-        actions: [
-          IconButton(
-            tooltip: _dark ? 'Light map' : 'Dark map',
-            icon: Icon(_dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-            onPressed: () => setState(() => _dark = !_dark),
-          ),
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: _failed
-                ? () {
-                    setState(() => _failed = false);
-                    unawaited(_load());
-                  }
-                : null,
-          ),
-        ],
-      ),
-      body: Builder(
-        builder: (context) {
-          if (_failed) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'Could not load radar frames. Check your connection and tap refresh.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-          if (_frames.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return Stack(
-            children: [
-              FlutterMap(
-                mapController: _map,
-                options: MapOptions(
-                  initialCenter: center,
-                  initialZoom: _startZoom,
-                  minZoom: 3,
-                  maxZoom: 12,
-                  interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                  ),
-                ),
-                children: [
-                  ColorFiltered(
-                    colorFilter: _dark ? _darkTiles : _noFilter,
-                    child: TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: _userAgent,
-                    ),
-                  ),
-                  for (final i in _visited)
-                    AnimatedOpacity(
-                      opacity: i == _index ? _opacity : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: _frames[i].isModel
-                          ? TileLayer(
-                              // HRRR simulated reflectivity — a model
-                              // forecast, rendered as-is (no advection).
-                              key: ValueKey(_frames[i].key),
-                              urlTemplate: _frames[i].tileUrl,
-                              userAgentPackageName: _userAgent,
-                            )
-                          : TileLayer(
-                                  // RainViewer tiles top out at native
-                                  // zoom 7; scale up beyond that instead of
-                                  // requesting unsupported zooms.
-                                  key: ValueKey(_frames[i].key),
-                                  urlTemplate: _frames[i].tileUrl,
-                                  userAgentPackageName: _userAgent,
-                                  maxNativeZoom: 7,
-                                ),
-                    ),
-                  MarkerLayer(markers: [
-                    Marker(
-                      point: center,
-                      width: 22,
-                      height: 22,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.orangeAccent,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black38, blurRadius: 6)
-                          ],
-                        ),
-                      ),
-                    ),
-                  ]),
-                  const SimpleAttributionWidget(
-                    source: Text('© OpenStreetMap · Radar: RainViewer'),
-                  ),
-                ],
-              ),
-              if (!_ready)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: LinearProgressIndicator(
-                    minHeight: 3,
-                    value: _visited.length / _frames.length,
-                  ),
-                ),
-              const Positioned(
-                left: 12,
-                top: 12,
-                child: _Legend(),
-              ),
-              Positioned(
-                right: 12,
-                bottom: 260,
-                child: FloatingActionButton.small(
-                  heroTag: 'recenter',
-                  tooltip: 'Back to my place',
-                  onPressed: () => _map.move(center, _startZoom),
-                  child: const Icon(Icons.my_location),
-                ),
-              ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.minutely.isNotEmpty)
-                          _NowcastStrip(minutely: widget.minutely),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                            child: Container(
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(26),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                    color: Colors.white.withAlpha(45)),
-                              ),
-                              child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(_frames[_index].label,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(
-                                                    fontWeight: FontWeight.w700)),
-                                        if (_frames[_index].isForecast) ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.withAlpha(40),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              border: Border.all(
-                                                  color: Colors.blueAccent),
-                                            ),
-                                            child: Text(
-                                                _frameBadge(_frames[_index]),
-                                                style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: _frames[_index]
-                                                            .isModel
-                                                        ? Colors
-                                                            .purpleAccent
-                                                        : Colors
-                                                            .lightBlueAccent)),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.opacity, size: 16),
-                                        SizedBox(
-                                          width: 90,
-                                          child: Slider(
-                                            value: _opacity,
-                                            min: 0.2,
-                                            max: 1,
-                                            onChanged: (v) =>
-                                                setState(() => _opacity = v),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.skip_previous),
-                                      onPressed: () => _step(-1),
-                                    ),
-                                    IconButton.filled(
-                                      icon: Icon(_playing
-                                          ? Icons.pause
-                                          : Icons.play_arrow),
-                                      onPressed: _ready ? _togglePlay : null,
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.skip_next),
-                                      onPressed: () => _step(1),
-                                    ),
-                                    PopupMenuButton<double>(
-                                      tooltip: 'Playback speed',
-                                      initialValue: _speed,
-                                      onSelected: _setSpeed,
-                                      itemBuilder: (_) => [
-                                        for (final sp in _speeds)
-                                          PopupMenuItem(
-                                            value: sp,
-                                            child: Text(
-                                              '${_speedLabel(sp)} speed',
-                                              style: TextStyle(
-                                                fontWeight: sp == _speed
-                                                    ? FontWeight.w700
-                                                    : FontWeight.w400,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 10),
-                                        child: Text(
-                                          _speedLabel(_speed),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Slider(
-                                        min: 0,
-                                        max: (_frames.length - 1).toDouble(),
-                                        divisions: _frames.length - 1,
-                                        value: _index.toDouble(),
-                                        onChanged: (v) => _show(v.round()),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                              ),
-                            ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Precipitation expected over the next 4 hours in 15-minute steps, from the
-/// Open-Meteo nowcast — the "what's coming" view radar tiles can't show.
-class _NowcastStrip extends StatelessWidget {
-  final List<MinutelyPoint> minutely;
-  const _NowcastStrip({required this.minutely});
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.watch<AppState>();
-    final peak =
-        minutely.fold<double>(0, (m, p) => p.precipMm > m ? p.precipMm : m);
-    return Card(
-      color: Theme.of(context).cardColor.withAlpha(235),
+    final header = SafeArea(
+      bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+        child: Row(
           children: [
-            Text('Next 4 hours',
-                style: Theme.of(context)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 44,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  for (var i = 0; i < minutely.length; i++)
+            RoundIconButton(
+              icon: Icons.arrow_back_rounded,
+              tooltip: 'Back',
+              solid: true,
+              onTap: () => Navigator.maybePop(context),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: pal.bg,
+                  borderRadius: BorderRadius.circular(21),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.radar, color: _accent, size: 18),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 1),
-                        child: Tooltip(
-                          message:
-                              '${DateFormat('h:mm a').format(minutely[i].time)} · ${minutely[i].precipProb}% · ${s.precip(minutely[i].precipMm)}/h',
-                          child: Container(
-                            height: peak <= 0
-                                ? 2
-                                : 2 +
-                                    40 *
-                                        (minutely[i].precipMm / peak).clamp(0, 1),
-                            decoration: BoxDecoration(
-                              color: minutely[i].precipMm > 0
-                                  ? Colors.lightBlueAccent
-                                  : Colors.white.withAlpha(40),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                      ),
+                      child: Text('Radar · ${p.name}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: pal.ink,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500)),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (minutely.isNotEmpty)
-                  Text(DateFormat('h a').format(minutely.first.time),
-                      style: const TextStyle(fontSize: 10, color: Colors.white70)),
-                if (minutely.length > 8)
-                  Text(DateFormat('h a').format(minutely[7].time),
-                      style: const TextStyle(fontSize: 10, color: Colors.white70)),
-                if (minutely.isNotEmpty)
-                  Text(DateFormat('h a').format(minutely.last.time),
-                      style: const TextStyle(fontSize: 10, color: Colors.white70)),
-              ],
+            const SizedBox(width: 8),
+            RoundIconButton(
+              icon: _dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              tooltip: _dark ? 'Light map' : 'Dark map',
+              solid: true,
+              onTap: () => setState(() => _dark = !_dark),
+            ),
+            const SizedBox(width: 8),
+            RoundIconButton(
+              icon: Icons.refresh_rounded,
+              tooltip: 'Refresh',
+              solid: true,
+              onTap: _failed
+                  ? () {
+                      setState(() => _failed = false);
+                      unawaited(_load());
+                    }
+                  : null,
             ),
           ],
         ),
       ),
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: pal.bg,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            _body(context, center, pal),
+            Positioned(top: 0, left: 0, right: 0, child: header),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, LatLng center, SheetPalette pal) {
+    final top = MediaQuery.paddingOf(context).top;
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    if (_failed) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off_rounded, size: 44, color: pal.faint),
+              const SizedBox(height: 12),
+              Text(
+                'Could not load radar frames. Check your connection and tap refresh.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: pal.soft),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_frames.isEmpty) {
+      return const Center(
+          child: CircularProgressIndicator(color: _accent));
+    }
+
+    final sliders = SliderTheme.of(context).copyWith(
+      activeTrackColor: _accent,
+      inactiveTrackColor: pal.track,
+      thumbColor: _accent,
+      overlayColor: _accent.withAlpha(30),
+      trackHeight: 4,
+      activeTickMarkColor: Colors.transparent,
+      inactiveTickMarkColor: Colors.transparent,
+    );
+    final f = _frames[_index];
+
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _map,
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: _startZoom,
+            minZoom: 3,
+            maxZoom: 12,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+            ),
+          ),
+          children: [
+            ColorFiltered(
+              colorFilter: _dark ? _darkTiles : _noFilter,
+              child: TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: _userAgent,
+              ),
+            ),
+            for (final i in _visited)
+              AnimatedOpacity(
+                opacity: i == _index ? _opacity : 0,
+                duration: const Duration(milliseconds: 200),
+                child: _frames[i].isModel
+                    ? TileLayer(
+                        // HRRR simulated reflectivity — a model
+                        // forecast, rendered as-is (no advection).
+                        key: ValueKey(_frames[i].key),
+                        urlTemplate: _frames[i].tileUrl,
+                        userAgentPackageName: _userAgent,
+                      )
+                    : TileLayer(
+                        // RainViewer tiles top out at native zoom 7;
+                        // scale up beyond that instead of requesting
+                        // unsupported zooms.
+                        key: ValueKey(_frames[i].key),
+                        urlTemplate: _frames[i].tileUrl,
+                        userAgentPackageName: _userAgent,
+                        maxNativeZoom: 7,
+                      ),
+              ),
+            MarkerLayer(markers: [
+              Marker(
+                point: center,
+                width: 24,
+                height: 24,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _accent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3.5),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black38, blurRadius: 8)
+                    ],
+                  ),
+                ),
+              ),
+            ]),
+          ],
+        ),
+        Positioned(
+          left: 14,
+          top: top + 62,
+          child: const _Legend(),
+        ),
+        if (!_ready)
+          Positioned(
+            top: top + 56,
+            left: 70,
+            right: 70,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                minHeight: 3,
+                color: _accent,
+                backgroundColor: pal.track,
+                value: _visited.length / _frames.length,
+              ),
+            ),
+          ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 14, bottom: 12),
+                child: RoundIconButton(
+                  icon: Icons.my_location_rounded,
+                  tooltip: 'Back to my place',
+                  solid: true,
+                  onTap: () => _map.move(center, _startZoom),
+                ),
+              ),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: pal.bg,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(32)),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 24,
+                        offset: Offset(0, -6)),
+                  ],
+                ),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 6 + bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.minutely.isNotEmpty) ...[
+                      NowcastStrip(minutely: widget.minutely, hours: 4),
+                      const SizedBox(height: 14),
+                    ],
+                    Row(
+                      children: [
+                        Text(f.label,
+                            style: TextStyle(
+                                color: pal.ink,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600)),
+                        if (f.isForecast) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (f.isModel
+                                      ? const Color(0xFFB36BD1)
+                                      : const Color(0xFF3F8CFF))
+                                  .withAlpha(34),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(_frameBadge(f),
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                    color: f.isModel
+                                        ? const Color(0xFFB36BD1)
+                                        : const Color(0xFF3F8CFF))),
+                          ),
+                        ],
+                        const Spacer(),
+                        Icon(Icons.opacity_rounded, size: 16, color: pal.soft),
+                        SizedBox(
+                          width: 96,
+                          child: SliderTheme(
+                            data: sliders,
+                            child: Slider(
+                              value: _opacity,
+                              min: 0.2,
+                              max: 1,
+                              onChanged: (v) => setState(() => _opacity = v),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Previous frame',
+                          icon: Icon(Icons.skip_previous_rounded,
+                              color: pal.ink),
+                          onPressed: () => _step(-1),
+                        ),
+                        IconButton.filled(
+                          tooltip: _playing ? 'Pause' : 'Play',
+                          style: IconButton.styleFrom(
+                            backgroundColor: _accent,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: pal.track,
+                          ),
+                          icon: Icon(_playing
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded),
+                          onPressed: _ready ? _togglePlay : null,
+                        ),
+                        IconButton(
+                          tooltip: 'Next frame',
+                          icon:
+                              Icon(Icons.skip_next_rounded, color: pal.ink),
+                          onPressed: () => _step(1),
+                        ),
+                        PopupMenuButton<double>(
+                          tooltip: 'Playback speed',
+                          initialValue: _speed,
+                          onSelected: _setSpeed,
+                          itemBuilder: (_) => [
+                            for (final sp in _speeds)
+                              PopupMenuItem(
+                                value: sp,
+                                child: Text(
+                                  '${_speedLabel(sp)} speed',
+                                  style: TextStyle(
+                                    fontWeight: sp == _speed
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                          ],
+                          child: Container(
+                            margin: const EdgeInsets.only(left: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: pal.card,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              _speedLabel(_speed),
+                              style: TextStyle(
+                                color: pal.ink,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: sliders,
+                            child: Slider(
+                              min: 0,
+                              max: (_frames.length - 1).toDouble(),
+                              divisions: _frames.length > 1
+                                  ? _frames.length - 1
+                                  : null,
+                              value: _index.toDouble(),
+                              onChanged: (v) => _show(v.round()),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Center(
+                      child: Text('© OpenStreetMap · Radar: RainViewer',
+                          style: TextStyle(color: pal.soft, fontSize: 10)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -541,30 +560,45 @@ class _Legend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).cardColor.withAlpha(230),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Intensity',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-            const SizedBox(width: 6),
-            for (final s in radarLegendStops)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(width: 10, height: 10, color: s.color),
-                    const SizedBox(width: 2),
-                    Text(s.label, style: const TextStyle(fontSize: 10)),
-                  ],
-                ),
+    final pal = SheetPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: pal.bg.withAlpha(235),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x22000000), blurRadius: 10, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Intensity',
+              style: TextStyle(
+                  color: pal.ink, fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 8),
+          for (final s in radarLegendStops)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: s.color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Text(s.label,
+                      style: TextStyle(color: pal.soft, fontSize: 10)),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

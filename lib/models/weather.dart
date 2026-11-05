@@ -210,6 +210,10 @@ class WeatherData {
         steeringWindDir: steeringWindDir,
       );
 
+  /// Whether [t] (place-local) is between that day's sunrise and sunset.
+  bool isDaylight(DateTime t) => isDaylightAt(
+      t, daily.map((d) => (sunrise: d.sunrise, sunset: d.sunset)));
+
   /// Time until rain starts at the current location, or null when nothing is
   /// expected in the next two hours. Based on the 15-minute nowcast rather
   /// than the (often wrong) model weather code.

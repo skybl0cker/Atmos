@@ -7,6 +7,7 @@ import '../models/weather.dart';
 import '../services/alerts_service.dart';
 import '../services/location_service.dart';
 import '../services/notification_service.dart';
+import '../services/seen_alerts.dart';
 import '../services/weather_service.dart';
 import '../services/widget_service.dart';
 import '../utils/haptics.dart';
@@ -63,6 +64,8 @@ class AppState extends ChangeNotifier {
     }
 
     if (selected != null) {
+      // Paint last session's forecast instantly, then refresh it.
+      _restoreWeather(selected!);
       unawaited(refresh());
     }
     // Upgrade path: places stored before reverse-geocoding existed are still
@@ -161,15 +164,19 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final results = await Future.wait([
-        _weather.fetch(p),
+        _weather.fetchRaw(p),
         _alertsService.active(p.lat, p.lon),
       ]);
       if (id != _req) return;
-      final d = results[0] as WeatherData;
+      final raw = results[0] as RawWeather;
+      final d = raw.data;
       final a = results[1] as List<WeatherAlert>;
       _cache[p.key] = d;
       data = d;
       alerts = a;
+      final now = DateTime.now();
+      _updatedAt[p.key] = now;
+      _persistWeather(p, raw, now);
 
       if (hapticsEnabled) {
         unawaited(hapticsForCode(d.current.code));
@@ -188,15 +195,19 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _notifyNewAlerts(List<WeatherAlert> current) async {
-    final ids = current.map((a) => a.id).toSet();
-    final unseen = current.where((a) => !_seenAlertIds.contains(a.id));
+    // Re-read: the background worker may have recorded alerts since launch.
+    final stored = _prefs.getStringList('seenAlerts') ?? const <String>[];
+    final seen = {...stored, ..._seenAlertIds};
+    final unseen = current.where((a) => !seen.contains(a.id)).toList();
     for (final a in unseen) {
       await _notifications.showAlert(a);
     }
-    // Keep only ids still active, plus anything new, so the set can't grow
-    // forever and old alerts get re-notified if they somehow recur.
-    _seenAlertIds = ids;
-    await _prefs.setStringList('seenAlerts', _seenAlertIds.toList());
+    // Merge, never replace: replacing with just this place's ids used to
+    // erase what the background worker had announced for other places, so
+    // it would announce them again.
+    final merged = mergeSeenAlerts(stored, current.map((a) => a.id));
+    _seenAlertIds = merged.toSet();
+    await _prefs.setStringList('seenAlerts', merged);
   }
 
   Future<List<Place>> search(String q) => _weather.search(q);
@@ -226,7 +237,76 @@ class AppState extends ChangeNotifier {
   void toggleUnits() {
     imperial = !imperial;
     _prefs.setBool('imperial', imperial);
+    // The home screen widget renders its own strings; redraw it in the new
+    // units right away instead of waiting for the next background run.
+    final d = data, p = selected;
+    if (d != null && p != null) {
+      unawaited(updateAtmosWidget(d, p.name, imperial));
+    }
     notifyListeners();
+  }
+
+  // ---- offline cache --------------------------------------------------------
+
+  final Map<String, DateTime> _updatedAt = {};
+
+  /// When the data on screen was fetched (null before the first load).
+  DateTime? get updatedAt => _updatedAt[selected?.key];
+
+  /// True when the last refresh failed but older data is still on screen.
+  bool get showingStale => error != null && data != null;
+
+  /// Saves the raw API responses for the place on screen, so the next
+  /// launch paints immediately (and works offline) instead of a spinner.
+  void _persistWeather(Place p, RawWeather raw, DateTime at) {
+    try {
+      _prefs.setString(
+        'wxLast',
+        jsonEncode({
+          'place': p.key,
+          'forecast': raw.forecastJson,
+          'air': raw.airJson,
+          'at': at.millisecondsSinceEpoch,
+        }),
+      );
+    } catch (_) {
+      // Storage full or unavailable: the cache is a nicety, never fatal.
+    }
+  }
+
+  /// Loads the saved forecast for [p], if it is the place that was cached.
+  void _restoreWeather(Place p) {
+    try {
+      final s = _prefs.getString('wxLast');
+      if (s == null) return;
+      final j = jsonDecode(s) as Map<String, dynamic>;
+      if (j['place'] != p.key) return;
+      final d = WeatherService.parse(
+          j['forecast'] as String, j['air'] as String?);
+      _cache[p.key] = d;
+      data = d;
+      _updatedAt[p.key] =
+          DateTime.fromMillisecondsSinceEpoch((j['at'] as num).toInt());
+    } catch (_) {
+      // Corrupt or outdated format: ignore and fetch fresh.
+    }
+  }
+
+  // ---- swiping between saved places -------------------------------------
+
+  /// Moves to the next (+1) or previous (-1) saved place, wrapping around.
+  /// From a place that isn't saved, jumps to the first / last saved one.
+  /// Returns false when there is nowhere to go.
+  bool stepPlace(int dir) {
+    if (saved.isEmpty) return false;
+    final i = saved.indexWhere((p) => p.key == selected?.key);
+    if (i == -1) {
+      selectPlace(dir > 0 ? saved.first : saved.last);
+      return true;
+    }
+    if (saved.length < 2) return false;
+    selectPlace(saved[(i + dir) % saved.length]);
+    return true;
   }
 
   void toggleHaptics() {

@@ -29,9 +29,9 @@ class AppDrawer extends StatelessWidget {
                 borderRadius:
                     BorderRadius.only(bottomRight: Radius.circular(28)),
                 image: DecorationImage(
-                  image:
-                      AssetImage('assets/backgrounds/bg_day.webp'),
+                  image: AssetImage('assets/backgrounds/bg_day.webp'),
                   fit: BoxFit.cover,
+                  alignment: Alignment(0, 0.3),
                 ),
               ),
               child: Container(

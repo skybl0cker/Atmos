@@ -2,10 +2,19 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/weather.dart';
 
+/// A parsed forecast plus the raw response bodies it came from, so the app
+/// can cache them for offline / instant start.
+class RawWeather {
+  final WeatherData data;
+  final String forecastJson;
+  final String? airJson;
+  const RawWeather(this.data, this.forecastJson, this.airJson);
+}
+
 class WeatherService {
   static const _timeout = Duration(seconds: 15);
 
-  Future<WeatherData> _forecast(Place p) async {
+  Future<String> _forecast(Place p) async {
     final uri = Uri.https('api.open-meteo.com', '/v1/forecast', {
       'latitude': p.lat.toString(),
       'longitude': p.lon.toString(),
@@ -27,16 +36,36 @@ class WeatherService {
     if (r.statusCode != 200) {
       throw Exception('Weather service error (${r.statusCode})');
     }
-    return WeatherData.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+    return r.body;
   }
 
-  Future<WeatherData> fetch(Place p) async {
+  /// Builds [WeatherData] from raw forecast / air-quality bodies (fresh or
+  /// cached). Throws if the forecast body is malformed.
+  static WeatherData parse(String forecastJson, String? airJson) {
+    final w = WeatherData.fromJson(
+        jsonDecode(forecastJson) as Map<String, dynamic>);
+    AirQuality? air;
+    if (airJson != null) {
+      try {
+        air = AirQuality.tryParse(jsonDecode(airJson) as Map<String, dynamic>);
+      } catch (_) {
+        air = null;
+      }
+    }
+    return w.withAir(air);
+  }
+
+  Future<RawWeather> fetchRaw(Place p) async {
     final airFuture = _air(p);
-    final w = await _forecast(p);
-    return w.withAir(await airFuture);
+    final f = await _forecast(p);
+    final a = await airFuture;
+    return RawWeather(parse(f, a), f, a);
   }
 
-  Future<AirQuality?> _air(Place p) async {
+  Future<WeatherData> fetch(Place p) async => (await fetchRaw(p)).data;
+
+  /// Raw air-quality body, or null when unavailable (never throws).
+  Future<String?> _air(Place p) async {
     try {
       final uri = Uri.https('air-quality-api.open-meteo.com', '/v1/air-quality', {
         'latitude': p.lat.toString(),
@@ -46,7 +75,7 @@ class WeatherService {
       });
       final r = await http.get(uri).timeout(_timeout);
       if (r.statusCode != 200) return null;
-      return AirQuality.tryParse(jsonDecode(r.body) as Map<String, dynamic>);
+      return r.body;
     } catch (_) {
       return null;
     }

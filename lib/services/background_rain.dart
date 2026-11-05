@@ -43,10 +43,15 @@ Future<void> runRainCheck() async {
   }
   if (places.isEmpty) return;
 
+  final svc = WeatherService();
+  // Fetched forecasts, reused below so the first place isn't requested twice.
+  final fetched = <String, WeatherData>{};
+
   // Keep the home screen widget fresh from the background too.
   try {
     final first = places.first;
-    final wd = await WeatherService().fetch(first);
+    final wd = await svc.fetch(first);
+    fetched[first.key] = wd;
     final imp = prefs.getBool('imperial') ?? true;
     await updateAtmosWidget(wd, first.name, imp);
   } catch (_) {}
@@ -67,11 +72,10 @@ Future<void> runRainCheck() async {
           AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(_channel);
 
-  final svc = WeatherService();
   for (final p in places.take(3)) {
     WeatherData d;
     try {
-      d = await svc.fetch(p);
+      d = fetched[p.key] ?? await svc.fetch(p);
     } catch (_) {
       continue;
     }

@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
@@ -37,6 +39,28 @@ Future<void> main() async {
 /// Atmos purple — sampled from the app icon.
 const _atmosPurple = Color(0xFF7C4DFF);
 
+/// Smooth, modern route transitions everywhere: Android's fade-forward
+/// (shared-axis style) motion, native swipe-back slide on Apple platforms.
+const _transitions = PageTransitionsTheme(
+  builders: {
+    TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.fuchsia: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+  },
+);
+
+/// Let mouse and trackpad drag scrollables and sheets too (Flutter web and
+/// desktop default to touch-only dragging).
+class _AnyPointerScroll extends MaterialScrollBehavior {
+  const _AnyPointerScroll();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => PointerDeviceKind.values.toSet();
+}
+
 class AtmosApp extends StatelessWidget {
   const AtmosApp({super.key});
 
@@ -46,18 +70,23 @@ class AtmosApp extends StatelessWidget {
     return MaterialApp(
       title: 'Atmos',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const _AnyPointerScroll(),
       themeMode: mode,
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: _atmosPurple,
         brightness: Brightness.light,
+        fontFamily: 'Poppins',
+        pageTransitionsTheme: _transitions,
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: _atmosPurple,
         brightness: Brightness.dark,
+        fontFamily: 'Poppins',
         scaffoldBackgroundColor: const Color(0xFF120E24),
         cardColor: const Color(0xFF1D1540),
+        pageTransitionsTheme: _transitions,
       ),
       home: const MainShell(),
     );

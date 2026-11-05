@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/weather.dart';
 import 'alerts_service.dart';
+import 'seen_alerts.dart';
 
 /// Checks NWS for NEW severe/extreme alerts at Sir's places and fires a
 /// high-priority notification for each one not seen before.
@@ -37,22 +38,32 @@ Future<void> runAlertCheck() async {
   }
   if (places.isEmpty) return;
 
-  final seen = (prefs.getStringList('seenAlerts') ?? []).toSet();
+  final existing = prefs.getStringList('seenAlerts') ?? [];
+  final seen = existing.toSet();
+  final announced = <String>[];
   final service = AlertsService();
   final plugin = FlutterLocalNotificationsPlugin();
+  // The background isolate has its own plugin instance: it must be
+  // initialized before show(), or show() throws and (swallowed by the
+  // dispatcher) no closed-app alert is ever delivered.
+  await plugin.initialize(const InitializationSettings(
+    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+  ));
   await plugin
       .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(_channel);
 
-  var updated = false;
   for (final place in places) {
     final alerts = await service.active(place.lat, place.lon);
     for (final a in alerts) {
       if (seen.contains(a.id)) continue;
-      seen.add(a.id);
-      updated = true;
+      // Only severe/extreme alerts are announced (and so marked seen) from
+      // the background. Advisories stay unseen so the app still notifies
+      // about them the next time it is opened.
       if (a.isSevere) {
+        seen.add(a.id);
+        announced.add(a.id);
         await plugin.show(
           a.id.hashCode,
           '⚠ ${a.event} — ${place.name}',
@@ -70,7 +81,8 @@ Future<void> runAlertCheck() async {
       }
     }
   }
-  if (updated) {
-    await prefs.setStringList('seenAlerts', seen.toList());
+  if (announced.isNotEmpty) {
+    await prefs.setStringList(
+        'seenAlerts', mergeSeenAlerts(existing, announced));
   }
 }

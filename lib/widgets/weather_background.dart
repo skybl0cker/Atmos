@@ -8,11 +8,16 @@ class WeatherBackground extends StatefulWidget {
   final bool isDay;
   final Widget child;
 
+  /// Paint drifting cloud blobs. Off when layered over illustrations that
+  /// already have their own clouds.
+  final bool clouds;
+
   const WeatherBackground({
     super.key,
     required this.code,
     required this.isDay,
     required this.child,
+    this.clouds = true,
   });
 
   @override
@@ -52,7 +57,15 @@ class _WeatherBackgroundState extends State<WeatherBackground>
 
   @override
   Widget build(BuildContext context) {
-    final spec = _specFor(widget.code, widget.isDay);
+    final full = _specFor(widget.code, widget.isDay);
+    final spec = widget.clouds
+        ? full
+        : _Spec(
+            rain: full.rain,
+            snow: full.snow,
+            stars: full.stars,
+            lightning: full.lightning,
+          );
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -185,8 +198,8 @@ class _FxPainter extends CustomPainter {
 
   void _paintClouds(Canvas canvas, double t, double w, double h) {
     final paint = Paint()
-      ..color = _c(spec.cloudAlpha, spec.cloudColor.red, spec.cloudColor.green,
-          spec.cloudColor.blue)
+      ..color = spec.cloudColor.withValues(
+          alpha: spec.cloudAlpha.clamp(0.0, 1.0).toDouble())
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 24);
     final fogScale = spec.fog ? 2.2 : 1.0;
 

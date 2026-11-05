@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -138,9 +139,18 @@ class TropicalService {
             headers: {'User-Agent': 'Mozilla/5.0'})
         .timeout(_timeout);
     if (r.statusCode != 200) return null;
+    return stormFromBdeck(id, name, type, r.body);
+  }
 
-    final fixes = <_BdeckFix>[];
-    for (final line in const LineSplitter().convert(r.body)) {
+  /// Parses an ATCF b-deck body into a storm. B-decks repeat each fix on
+  /// several lines (one per 34/50/64-kt wind radius), so fixes are merged
+  /// per timestamp — otherwise motion was measured between two copies of
+  /// the same fix and read "moving N at 0 mph".
+  @visibleForTesting
+  static TropicalStorm? stormFromBdeck(
+      String id, String name, String type, String body) {
+    final byTime = <DateTime, _BdeckFix>{};
+    for (final line in const LineSplitter().convert(body)) {
       final c = line.split(',');
       if (c.length < 11) continue;
       if (c[4].trim() != 'BEST') continue;
@@ -152,18 +162,20 @@ class TropicalService {
           int.parse(dt.substring(6, 8)),
           int.parse(dt.substring(8, 10)),
         );
-        fixes.add(_BdeckFix(
+        byTime[time] = _BdeckFix(
           time,
           _parseLat(c[6].trim()),
           _parseLon(c[7].trim()),
           int.parse(c[8].trim()),
           int.parse(c[9].trim()),
-        ));
+        );
       } catch (_) {
         continue;
       }
     }
-    if (fixes.isEmpty) return null;
+    if (byTime.isEmpty) return null;
+    final fixes = byTime.values.toList()
+      ..sort((a, b) => a.time.compareTo(b.time));
     final cur = fixes.last;
     final trail = fixes.length > 12
         ? fixes.sublist(fixes.length - 12)

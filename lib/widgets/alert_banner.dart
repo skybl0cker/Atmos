@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/alert.dart';
 import '../screens/alerts_screen.dart';
 import '../state/app_state.dart';
 
