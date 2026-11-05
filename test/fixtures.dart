@@ -34,7 +34,8 @@ Map<String, dynamic> forecastJson({
   for (var q = 0; q < 16; q++) {
     final t = DateTime(2026, 11, 5, 14).add(Duration(minutes: 15 * q));
     mTimes.add(
-        '${t.year}-${two(t.month)}-${two(t.day)}T${two(t.hour)}:${two(t.minute)}');
+      '${t.year}-${two(t.month)}-${two(t.day)}T${two(t.hour)}:${two(t.minute)}',
+    );
   }
   final days = ['2026-11-05', '2026-11-06', '2026-11-07'];
   return {
@@ -55,10 +56,10 @@ Map<String, dynamic> forecastJson({
       'time': hTimes,
       'temperature_2m': [for (var i = 0; i < 48; i++) 10 + (i % 24) * 0.5],
       'precipitation_probability': [
-        for (var i = 0; i < 48; i++) hourlyProb?.call(i) ?? 0
+        for (var i = 0; i < 48; i++) hourlyProb?.call(i) ?? 0,
       ],
       'precipitation': [
-        for (var i = 0; i < 48; i++) hourlyPrecip?.call(i) ?? 0.0
+        for (var i = 0; i < 48; i++) hourlyPrecip?.call(i) ?? 0.0,
       ],
       'weather_code': [for (var i = 0; i < 48; i++) hourlyCode?.call(i) ?? 1],
       for (final lvl in ['850hPa', '700hPa', '500hPa']) ...{
@@ -70,7 +71,7 @@ Map<String, dynamic> forecastJson({
       'time': mTimes,
       'precipitation_probability': [for (var q = 0; q < 16; q++) 0],
       'precipitation': [
-        for (var q = 0; q < 16; q++) minutelyPrecip?.call(q) ?? 0.0
+        for (var q = 0; q < 16; q++) minutelyPrecip?.call(q) ?? 0.0,
       ],
       'weather_code': [for (var q = 0; q < 16; q++) 3],
     },

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' show DateFormat;
@@ -8,6 +10,7 @@ import '../services/severe_event_service.dart';
 import '../state/app_state.dart';
 import '../utils/aqi.dart';
 import '../utils/astro.dart';
+import '../utils/layout.dart';
 import '../utils/summary.dart';
 import '../utils/tips.dart';
 import '../utils/weather_codes.dart';
@@ -47,11 +50,13 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 0 = sheet resting, 1 = fully expanded. Drives the hero fade.
   final _expand = ValueNotifier<double>(0);
   final _sheetCtrl = DraggableScrollableController();
+  final _panelScroll = ScrollController();
 
   @override
   void dispose() {
     _expand.dispose();
     _sheetCtrl.dispose();
+    _panelScroll.dispose();
     super.dispose();
   }
 
@@ -74,6 +79,105 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
+    final width = MediaQuery.sizeOf(context).width;
+    // Phones keep the pull-up sheet; unfolded foldables, tablets and
+    // desktop browsers get the side-by-side layout.
+    if (width >= wideLayoutMinWidth) return _buildWide(context, s);
+    return _buildPhone(context, s);
+  }
+
+  /// Big screens: the scene and hero fill the left, "Weather Today" sits in
+  /// a floating panel on the right, and on very wide screens the 14-day
+  /// outlook gets its own column.
+  Widget _buildWide(BuildContext context, AppState s) {
+    final d = s.data;
+    final size = MediaQuery.sizeOf(context);
+    final threeCol = size.width >= threeColumnMinWidth;
+    final panelW = (size.width * (threeCol ? 0.3 : 0.44)).clamp(360.0, 480.0);
+    final dailyW = threeCol ? (size.width * 0.24).clamp(320.0, 400.0) : 0.0;
+    const gap = 20.0;
+    final reserved = panelW + gap * 2 + (threeCol ? dailyW + gap : 0);
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        drawer: const AppDrawer(),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: Scene(data: d, alignment: Scene.wideAlignment),
+            ),
+            SafeArea(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          _Header(s: s),
+                          if (d != null)
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onHorizontalDragEnd: (e) {
+                                final v = e.primaryVelocity ?? 0;
+                                if (v.abs() < 250) return;
+                                if (s.stepPlace(v < 0 ? 1 : -1)) {
+                                  tapHaptic(context);
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Reveal(
+                                  key: ValueKey(s.selected?.key),
+                                  child: _Hero(s: s, d: d, maxScale: 1.3),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (threeCol)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(0, gap, gap, gap),
+                      child: SizedBox(
+                        width: dailyW,
+                        child: _DailyPanel(s: s),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, gap, gap, gap),
+                    child: SizedBox(
+                      width: panelW,
+                      child: _Sheet(
+                        scroll: _panelScroll,
+                        s: s,
+                        event: widget.event,
+                        docked: true,
+                        showDaily: !threeCol,
+                        onRadar: () => _openRadar(s),
+                        onForecast: () => _push(const ForecastScreen()),
+                        onAlerts: () => _push(const EventScreen()),
+                        onRadio: () => _push(const RadioScreen()),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (d == null)
+              _StatusOverlay(state: s, rightInset: reserved, bottomFraction: 0),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhone(BuildContext context, AppState s) {
     final d = s.data;
     final mq = MediaQuery.of(context);
     // Resting sheet: handle, title, the hourly row and the quick actions.
@@ -312,15 +416,19 @@ class _MenuGlyph extends StatelessWidget {
 class _Hero extends StatelessWidget {
   final AppState s;
   final WeatherData d;
-  const _Hero({required this.s, required this.d});
+
+  /// How far the readout may grow past phone size (big screens only).
+  final double maxScale;
+  const _Hero({required this.s, required this.d, this.maxScale = 1.0});
 
   @override
   Widget build(BuildContext context) {
     final c = d.current;
     final today = d.daily.isNotEmpty ? d.daily.first : null;
     final target = s.tv(c.tempC);
-    // Scale the big readout down on short phones (full size from ~780 dp).
-    final k = (MediaQuery.sizeOf(context).height / 780).clamp(0.68, 1.0);
+    // Scale the big readout down on short phones (full size from ~780 dp),
+    // and up to [maxScale] on large screens.
+    final k = (MediaQuery.sizeOf(context).height / 780).clamp(0.68, maxScale);
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 6, 22, 0),
       child: Row(
@@ -437,7 +545,16 @@ class _Sheet extends StatelessWidget {
   final ScrollController scroll;
   final AppState s;
   final SevereEvent? event;
-  final VoidCallback onRadar, onForecast, onAlerts, onRadio, onHandleTap;
+  final VoidCallback onRadar, onForecast, onAlerts, onRadio;
+  final VoidCallback? onHandleTap;
+
+  /// Docked = a floating side panel on big screens (no drag handle, all
+  /// corners rounded) instead of the phone's pull-up sheet.
+  final bool docked;
+
+  /// Whether the 10-day list lives in this panel (off when big screens
+  /// give it its own column).
+  final bool showDaily;
   const _Sheet({
     required this.scroll,
     required this.s,
@@ -446,7 +563,9 @@ class _Sheet extends StatelessWidget {
     required this.onForecast,
     required this.onAlerts,
     required this.onRadio,
-    required this.onHandleTap,
+    this.onHandleTap,
+    this.docked = false,
+    this.showDaily = true,
   });
 
   @override
@@ -454,7 +573,10 @@ class _Sheet extends StatelessWidget {
     final pal = SheetPalette.of(context);
     final d = s.data;
     final ev = (event != null && event!.kind != SevereKind.none) ? event : null;
-    final bottom = MediaQuery.paddingOf(context).bottom;
+    final bottom = docked ? 0.0 : MediaQuery.paddingOf(context).bottom;
+    final radius = docked
+        ? BorderRadius.circular(32)
+        : const BorderRadius.vertical(top: Radius.circular(38));
 
     Widget title(String t) => Padding(
       padding: const EdgeInsets.fromLTRB(22, 22, 22, 10),
@@ -471,17 +593,17 @@ class _Sheet extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: pal.bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(38)),
-        boxShadow: const [
+        borderRadius: radius,
+        boxShadow: [
           BoxShadow(
-            color: Color(0x33000000),
+            color: const Color(0x33000000),
             blurRadius: 30,
-            offset: Offset(0, -6),
+            offset: Offset(0, docked ? 10 : -6),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(38)),
+        borderRadius: radius,
         child: RefreshIndicator(
           color: _accent,
           onRefresh: () {
@@ -493,23 +615,26 @@ class _Sheet extends StatelessWidget {
             physics: const ClampingScrollPhysics(),
             padding: EdgeInsets.only(bottom: 28 + bottom),
             children: [
-              GestureDetector(
-                onTap: onHandleTap,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 12, bottom: 14),
-                  child: Center(
-                    child: Container(
-                      width: 38,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: pal.faint,
-                        borderRadius: BorderRadius.circular(2),
+              if (docked)
+                const SizedBox(height: 24)
+              else
+                GestureDetector(
+                  onTap: onHandleTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 14),
+                    child: Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: pal.faint,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
               Center(
                 child: Text(
                   'Weather Today',
@@ -574,11 +699,13 @@ class _Sheet extends StatelessWidget {
                   ),
                 title('Details'),
                 _Details(s: s, d: d, pal: pal),
-                title('Next 10 Days'),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14),
-                  child: LightDailyList(maxDays: 10),
-                ),
+                if (showDaily) ...[
+                  title('Next 10 Days'),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14),
+                    child: LightDailyList(maxDays: 10),
+                  ),
+                ],
                 Padding(
                   padding: const EdgeInsets.only(top: 18),
                   child: Center(
@@ -605,50 +732,56 @@ class _HourlyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final w = (MediaQuery.sizeOf(context).width - 24) / 4;
     final hours = d.hourly;
-    return SizedBox(
-      height: 122,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: hours.length,
-        itemBuilder: (_, i) {
-          final h = hours[i];
-          final now = i == 0;
-          return SizedBox(
-            width: w,
-            child: Column(
-              children: [
-                ArtIcon(
-                  h.code,
-                  day: now ? d.current.isDay : d.isDaylight(h.time),
-                  size: 42,
-                  onDark: pal.dark,
+    // Four hours per view on phones; on wider panels the cards stop
+    // growing past 104 dp and more hours show instead.
+    return LayoutBuilder(
+      builder: (context, box) {
+        final w = math.min((box.maxWidth - 24) / 4, 104.0);
+        return SizedBox(
+          height: 122,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: hours.length,
+            itemBuilder: (_, i) {
+              final h = hours[i];
+              final now = i == 0;
+              return SizedBox(
+                width: w,
+                child: Column(
+                  children: [
+                    ArtIcon(
+                      h.code,
+                      day: now ? d.current.isDay : d.isDaylight(h.time),
+                      size: 42,
+                      onDark: pal.dark,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      now ? 'NOW' : DateFormat('hh:mm a').format(h.time),
+                      style: TextStyle(
+                        color: now ? _accent : pal.soft,
+                        fontSize: 11,
+                        fontWeight: now ? FontWeight.w600 : FontWeight.w400,
+                        letterSpacing: now ? 1 : 0,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    RingTemp(
+                      '${s.tv(h.tempC).round()}',
+                      fontSize: 30,
+                      weight: FontWeight.w300,
+                      color: pal.ink,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  now ? 'NOW' : DateFormat('hh:mm a').format(h.time),
-                  style: TextStyle(
-                    color: now ? _accent : pal.soft,
-                    fontSize: 11,
-                    fontWeight: now ? FontWeight.w600 : FontWeight.w400,
-                    letterSpacing: now ? 1 : 0,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                RingTemp(
-                  '${s.tv(h.tempC).round()}',
-                  fontSize: 30,
-                  weight: FontWeight.w300,
-                  color: pal.ink,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -840,11 +973,15 @@ class _Details extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              it.$2,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: pal.soft, fontSize: 11),
+            // Shrink a long label slightly rather than cutting it off.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                it.$2,
+                maxLines: 1,
+                style: TextStyle(color: pal.soft, fontSize: 11),
+              ),
             ),
           ],
         ),
@@ -877,6 +1014,51 @@ class _Details extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Third column on very wide screens: the 14-day outlook in its own
+/// floating panel.
+class _DailyPanel extends StatelessWidget {
+  final AppState s;
+  const _DailyPanel({required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = SheetPalette.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: pal.bg,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 30,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: s.data == null
+          ? const SizedBox.shrink()
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(14, 24, 14, 24),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+                  child: Text(
+                    'Next 14 Days',
+                    style: TextStyle(
+                      color: pal.ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const LightDailyList(maxDays: 14),
+              ],
+            ),
     );
   }
 }
@@ -1056,7 +1238,16 @@ class _Tips extends StatelessWidget {
 
 class _StatusOverlay extends StatelessWidget {
   final AppState state;
-  const _StatusOverlay({required this.state});
+
+  /// Space to keep clear on the right (the docked panel on big screens)
+  /// and at the bottom (the phone sheet).
+  final double rightInset;
+  final double bottomFraction;
+  const _StatusOverlay({
+    required this.state,
+    this.rightInset = 0,
+    this.bottomFraction = 0.3,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1129,9 +1320,9 @@ class _StatusOverlay extends StatelessWidget {
     }
     return Positioned(
       left: 0,
-      right: 0,
+      right: rightInset,
       top: 0,
-      bottom: MediaQuery.sizeOf(context).height * 0.3,
+      bottom: MediaQuery.sizeOf(context).height * bottomFraction,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

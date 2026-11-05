@@ -66,12 +66,15 @@ class AtmosApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Light by day, dark by night at the place on screen.
     final mode = context.select<AppState, ThemeMode>((s) => s.themeMode);
     return MaterialApp(
       title: 'Atmos',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _AnyPointerScroll(),
       themeMode: mode,
+      // Cross-fade between the light and dark themes at sunrise / sunset.
+      themeAnimationDuration: const Duration(milliseconds: 600),
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: _atmosPurple,

@@ -214,6 +214,18 @@ class WeatherData {
   bool isDaylight(DateTime t) => isDaylightAt(
       t, daily.map((d) => (sunrise: d.sunrise, sunset: d.sunset)));
 
+  /// Whether it is daytime at the place *right now*: the forecast's own
+  /// clock ([CurrentWeather.time], place-local) advanced by however long
+  /// ago it was fetched, checked against that day's sunrise and sunset.
+  /// Works for far-away places, since it never mixes in the device's
+  /// time zone.
+  bool isDaylightNow({DateTime? fetchedAt, DateTime? now}) {
+    final placeNow = fetchedAt == null
+        ? current.time
+        : current.time.add((now ?? DateTime.now()).difference(fetchedAt));
+    return isDaylight(placeNow);
+  }
+
   /// Time until rain starts at the current location, or null when nothing is
   /// expected in the next two hours. Based on the 15-minute nowcast rather
   /// than the (often wrong) model weather code.

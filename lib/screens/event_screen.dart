@@ -11,6 +11,7 @@ import '../services/severe_event_service.dart';
 import '../services/tropical_service.dart';
 import '../services/usgs_service.dart';
 import '../state/app_state.dart';
+import '../utils/layout.dart';
 import '../widgets/scene_page.dart';
 import '../widgets/storm_map.dart';
 
@@ -200,7 +201,9 @@ class _EventScreenState extends State<EventScreen> {
           preferredSize: const Size.fromHeight(66),
           child: SafeArea(
             bottom: false,
-            child: PageHeader(
+            child: MaxWidth(
+              maxWidth: contentMaxWidth + 16,
+              child: PageHeader(
               title: 'Severe Weather',
               subtitle: context.watch<AppState>().selected?.name,
               actions: [
@@ -210,6 +213,7 @@ class _EventScreenState extends State<EventScreen> {
                   onTap: _load,
                 ),
               ],
+            ),
             ),
           ),
         ),
@@ -228,7 +232,10 @@ class _EventScreenState extends State<EventScreen> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                // Centered and width-capped on big screens.
+                padding: EdgeInsets.symmetric(
+                    horizontal: centeredGutter(context, min: 16),
+                    vertical: 16),
                 children: [
                   if (_threats.isNotEmpty) ...[
                     _FeaturedThreat(

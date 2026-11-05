@@ -69,15 +69,17 @@ void main() {
   group('nowcast', () {
     test('rainStartsIn finds the first wet quarter-hour', () {
       final d = WeatherData.fromJson(
-          forecastJson(minutelyPrecip: (q) => q >= 3 ? 0.5 : 0));
+        forecastJson(minutelyPrecip: (q) => q >= 3 ? 0.5 : 0),
+      );
       // q=3 → 14:45, precip 0.5 mm/15min → 2 mm/h (> 0.2 threshold).
       expect(d.rainStartsIn, const Duration(minutes: 45));
     });
     test('no rain → null; already raining → null', () {
       expect(WeatherData.fromJson(forecastJson()).rainStartsIn, isNull);
       expect(
-          WeatherData.fromJson(forecastJson(currentCode: 61)).rainStartsIn,
-          isNull);
+        WeatherData.fromJson(forecastJson(currentCode: 61)).rainStartsIn,
+        isNull,
+      );
     });
   });
 
@@ -101,46 +103,59 @@ void main() {
       expect(weatherSummary(d, f), 'Dry for the rest of the day.');
     });
     test('rain later today, and a cooler tomorrow', () {
-      final d = WeatherData.fromJson(forecastJson(
-        hourlyProb: (h) => h == 19 ? 70 : 0,
-        hourlyCode: (h) => h == 19 ? 61 : 1,
-        dailyMax: [24, 18, 18],
-      ));
-      expect(weatherSummary(d, f),
-          'Rain likely around 7 PM. Cooler tomorrow, high of 64°.');
+      final d = WeatherData.fromJson(
+        forecastJson(
+          hourlyProb: (h) => h == 19 ? 70 : 0,
+          hourlyCode: (h) => h == 19 ? 61 : 1,
+          dailyMax: [24, 18, 18],
+        ),
+      );
+      expect(
+        weatherSummary(d, f),
+        'Rain likely around 7 PM. Cooler tomorrow, high of 64°.',
+      );
     });
     test('raining now and easing', () {
-      final d = WeatherData.fromJson(forecastJson(
-        currentCode: 63,
-        hourlyProb: (h) => h < 17 ? 90 : 0,
-        hourlyPrecip: (h) => h < 17 ? 2.0 : 0,
-      ));
+      final d = WeatherData.fromJson(
+        forecastJson(
+          currentCode: 63,
+          hourlyProb: (h) => h < 17 ? 90 : 0,
+          hourlyPrecip: (h) => h < 17 ? 2.0 : 0,
+        ),
+      );
       expect(weatherSummary(d, f), startsWith('Rain easing around 5 PM.'));
     });
     test('wind trumps the tomorrow note', () {
       final d = WeatherData.fromJson(
-          forecastJson(windKmh: 50, dailyMax: [24, 10, 10]));
+        forecastJson(windKmh: 50, dailyMax: [24, 10, 10]),
+      );
       expect(weatherSummary(d, f), endsWith('Windy out there.'));
     });
   });
 
   group('dayTips', () {
     test('rain, cold and UV produce matching tips', () {
-      final d = WeatherData.fromJson(forecastJson(
-        currentFeels: 6,
-        hourlyProb: (h) => 80,
-        uv: [7, 1, 1],
-      ));
+      final d = WeatherData.fromJson(
+        forecastJson(currentFeels: 6, hourlyProb: (h) => 80, uv: [7, 1, 1]),
+      );
       final t = dayTips(d).map((t) => t.text).toList();
       expect(t, contains('Bring an umbrella'));
       expect(t, contains('Grab a warm jacket'));
       expect(t, contains('High UV — wear sunscreen'));
     });
     test('pleasant dry day gets the feel-good tip, capped at 3', () {
-      final d = WeatherData.fromJson(forecastJson(currentFeels: 22, uv: [3, 1, 1]));
+      final d = WeatherData.fromJson(
+        forecastJson(currentFeels: 22, uv: [3, 1, 1]),
+      );
       expect(dayTips(d).single.text, 'Great day to be outside');
-      final busy = WeatherData.fromJson(forecastJson(
-          currentFeels: -3, windKmh: 60, hourlyProb: (h) => 90, uv: [9, 1, 1]));
+      final busy = WeatherData.fromJson(
+        forecastJson(
+          currentFeels: -3,
+          windKmh: 60,
+          hourlyProb: (h) => 90,
+          uv: [9, 1, 1],
+        ),
+      );
       expect(dayTips(busy).length, 3);
     });
   });
@@ -196,7 +211,11 @@ void main() {
 
     test('duplicate radius lines collapse to one fix per time', () {
       final s = TropicalService.stormFromBdeck(
-          'AL092026', 'Test', 'Hurricane', body)!;
+        'AL092026',
+        'Test',
+        'Hurricane',
+        body,
+      )!;
       expect(s.trail.length, 2);
       expect(s.windKt, 95);
       // 0.6° of latitude in 6 h = 36 nm / 6 h = 6 kt, heading north.
@@ -221,12 +240,18 @@ void main() {
   group('scene', () {
     test('picks the matching illustration', () {
       expect(sceneAsset(null), endsWith('bg_day.webp'));
-      expect(sceneAsset(WeatherData.fromJson(forecastJson(isDay: 0))),
-          endsWith('bg_night.webp'));
-      expect(sceneAsset(WeatherData.fromJson(forecastJson(currentCode: 63))),
-          endsWith('bg_rain.webp'));
-      expect(sceneAsset(WeatherData.fromJson(forecastJson(currentCode: 95))),
-          endsWith('bg_rain.webp'));
+      expect(
+        sceneAsset(WeatherData.fromJson(forecastJson(isDay: 0))),
+        endsWith('bg_night.webp'),
+      );
+      expect(
+        sceneAsset(WeatherData.fromJson(forecastJson(currentCode: 63))),
+        endsWith('bg_rain.webp'),
+      );
+      expect(
+        sceneAsset(WeatherData.fromJson(forecastJson(currentCode: 95))),
+        endsWith('bg_rain.webp'),
+      );
     });
     test('condition phrases', () {
       expect(conditionPhrase(0, true), "It's Sunny");

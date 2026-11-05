@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import '../utils/layout.dart';
 import 'pressable.dart';
 import 'scene.dart';
 
@@ -149,48 +150,57 @@ class ScenePage extends StatelessWidget {
     final d = context.watch<AppState>().data;
     final pal = SheetPalette.of(context);
     final h = MediaQuery.sizeOf(context).height;
+    // Big screens: the painting fills the window and the content floats
+    // in a centered, width-capped card. Phones: unchanged.
+    final wide = isWide(context);
+    final radius = wide
+        ? BorderRadius.circular(38)
+        : const BorderRadius.vertical(top: Radius.circular(38));
+    final column = Column(
+      children: [
+        PageHeader(title: title, subtitle: subtitle, actions: actions),
+        if (header != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: header!,
+          ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            margin: wide
+                ? const EdgeInsets.fromLTRB(8, 0, 8, 24)
+                : EdgeInsets.zero,
+            decoration: BoxDecoration(
+              color: pal.bg,
+              borderRadius: radius,
+              boxShadow: [
+                BoxShadow(
+                    color: const Color(0x33000000),
+                    blurRadius: 30,
+                    offset: Offset(0, wide ? 10 : -6)),
+              ],
+            ),
+            child: ClipRRect(borderRadius: radius, child: body),
+          ),
+        ),
+        ?bottomBar,
+      ],
+    );
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: pal.bg,
         body: Stack(
           children: [
-            SizedBox(height: h * sceneHeight + 40, child: Scene(data: d)),
+            if (wide)
+              Positioned.fill(
+                  child: Scene(data: d, alignment: Scene.wideAlignment))
+            else
+              SizedBox(height: h * sceneHeight + 40, child: Scene(data: d)),
             SafeArea(
               bottom: false,
-              child: Column(
-                children: [
-                  PageHeader(title: title, subtitle: subtitle, actions: actions),
-                  if (header != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: header!,
-                    ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: pal.bg,
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(38)),
-                        boxShadow: const [
-                          BoxShadow(
-                              color: Color(0x33000000),
-                              blurRadius: 30,
-                              offset: Offset(0, -6)),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(38)),
-                        child: body,
-                      ),
-                    ),
-                  ),
-                  ?bottomBar,
-                ],
-              ),
+              child: wide ? MaxWidth(child: column) : column,
             ),
           ],
         ),

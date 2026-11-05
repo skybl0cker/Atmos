@@ -45,6 +45,24 @@ driven in a phone-sized browser.
 - Radio playback (no audio played during testing).
 - Swipe-between-places in the browser (covered by unit test only).
 
+## Follow-up: big screens + automatic day/night (same day)
+
+- **Day/night theme**: light from sunrise to sunset, dark at night, using
+  the sun times of the place on screen (so a Tokyo forecast goes dark at
+  Tokyo's sunset). Re-checked every minute; the manual theme setting was
+  replaced by an "Auto" indicator in the menu.
+- **Radar map** follows the same rule (light by day, dark at night); the map
+  toggle still overrides it for that visit.
+- **Layouts by width** (`lib/utils/layout.dart`):
+  - under 700 dp (all phones, incl. big ones): unchanged.
+  - 700 dp+ (unfolded foldables, tablets): scene + hero on the left, the
+    "Weather Today" panel docked on the right.
+  - 1280 dp+ (desktop / large tablets): adds a third column for the 14-day
+    outlook.
+  - Places, Radio, Alerts, Severe Weather, 14-Day and Radar controls center
+    in a 760 dp card over the full-window painting.
+- Tests: 43/43 (adds day/night and phone/foldable/tablet/desktop layout tests).
+
 ## Running the checks
 
 With Flutter on PATH:

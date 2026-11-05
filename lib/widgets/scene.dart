@@ -44,7 +44,20 @@ String conditionPhrase(int code, bool day) {
 class Scene extends StatelessWidget {
   final WeatherData? data;
   final double bottomInset;
-  const Scene({super.key, required this.data, this.bottomInset = 0});
+
+  /// Which part of the (portrait) painting to keep when cropping. Phones
+  /// keep the hills at the bottom; wide windows frame the middle so the
+  /// sun / moon and horizon stay in view.
+  final Alignment alignment;
+  const Scene({
+    super.key,
+    required this.data,
+    this.bottomInset = 0,
+    this.alignment = Alignment.bottomCenter,
+  });
+
+  /// Framing for landscape / big-screen layouts.
+  static const wideAlignment = Alignment(0, 0.1);
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +79,7 @@ class Scene extends StatelessWidget {
               asset,
               key: ValueKey(asset),
               fit: BoxFit.cover,
-              alignment: Alignment.bottomCenter,
+              alignment: alignment,
               width: double.infinity,
               height: double.infinity,
               gaplessPlayback: true,

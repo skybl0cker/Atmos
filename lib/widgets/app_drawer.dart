@@ -126,11 +126,22 @@ class AppDrawer extends StatelessWidget {
               value: s.notificationsEnabled,
               onChanged: (_) => s.toggleNotifications(),
             ),
-            _tile(
-              context,
-              icon: Icons.brightness_6_outlined,
-              label: 'Theme · ${s.themeLabel}',
-              onTap: s.cycleTheme,
+            // Theme is automatic: light by day, dark at night (sun times
+            // for the place on screen). Shown, not toggled.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: ListTile(
+                leading: Icon(
+                    s.isDaytime
+                        ? Icons.light_mode_outlined
+                        : Icons.dark_mode_outlined,
+                    color: const Color(0xFF7C4DFF)),
+                title: const Text('Theme · Auto',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(s.isDaytime
+                    ? 'Light until sunset'
+                    : 'Dark until sunrise'),
+              ),
             ),
             const SizedBox(height: 12),
           ],

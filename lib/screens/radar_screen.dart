@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import '../models/weather.dart';
+import '../state/app_state.dart';
 import '../services/hrrr_service.dart';
 import '../services/radar_service.dart';
+import '../utils/layout.dart';
 import '../utils/radar_legend.dart';
 import '../widgets/nowcast_strip.dart';
 import '../widgets/scene.dart';
@@ -52,7 +55,11 @@ class _RadarScreenState extends State<RadarScreen> {
 
   late int _index = 0;
   bool _playing = false;
-  bool _dark = true;
+  /// Map style follows day/night at the place (light by day, dark at
+  /// night); tapping the toggle overrides it for this visit.
+  bool? _darkOverride;
+  bool get _dark =>
+      _darkOverride ?? !context.read<AppState>().isDaytime;
   double _opacity = 0.8;
   double _zoom = _startZoom;
   double _speed = 1.0;
@@ -176,11 +183,14 @@ class _RadarScreenState extends State<RadarScreen> {
     final p = widget.place;
     final center = LatLng(p.lat, p.lon);
     final pal = SheetPalette.of(context);
+    // Rebuild (and re-pick the map style) when day turns to night.
+    context.select<AppState, bool>((s) => s.isDaytime);
 
+    final gutter = centeredGutter(context, min: 14);
     final header = SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+        padding: EdgeInsets.fromLTRB(gutter, 8, gutter, 0),
         child: Row(
           children: [
             RoundIconButton(
@@ -226,7 +236,7 @@ class _RadarScreenState extends State<RadarScreen> {
               icon: _dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
               tooltip: _dark ? 'Light map' : 'Dark map',
               solid: true,
-              onTap: () => setState(() => _dark = !_dark),
+              onTap: () => setState(() => _darkOverride = !_dark),
             ),
             const SizedBox(width: 8),
             RoundIconButton(
@@ -263,6 +273,8 @@ class _RadarScreenState extends State<RadarScreen> {
   Widget _body(BuildContext context, LatLng center, SheetPalette pal) {
     final top = MediaQuery.paddingOf(context).top;
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final wide = isWide(context);
+    final gutter = centeredGutter(context, min: 14);
     if (_failed) {
       return Center(
         child: Padding(
@@ -361,7 +373,7 @@ class _RadarScreenState extends State<RadarScreen> {
           ],
         ),
         Positioned(
-          left: 14,
+          left: gutter,
           top: top + 62,
           child: const _Legend(),
         ),
@@ -387,7 +399,7 @@ class _RadarScreenState extends State<RadarScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Padding(
-                padding: const EdgeInsets.only(right: 14, bottom: 12),
+                padding: EdgeInsets.only(right: gutter, bottom: 12),
                 child: RoundIconButton(
                   icon: Icons.my_location_rounded,
                   tooltip: 'Back to my place',
@@ -397,15 +409,21 @@ class _RadarScreenState extends State<RadarScreen> {
               ),
               Container(
                 width: double.infinity,
+                // Big screens: a centered, width-capped floating panel so
+                // the controls don't stretch across the whole map.
+                margin: wide
+                    ? EdgeInsets.fromLTRB(gutter, 0, gutter, 16)
+                    : EdgeInsets.zero,
                 decoration: BoxDecoration(
                   color: pal.bg,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(32)),
-                  boxShadow: const [
+                  borderRadius: wide
+                      ? BorderRadius.circular(32)
+                      : const BorderRadius.vertical(top: Radius.circular(32)),
+                  boxShadow: [
                     BoxShadow(
-                        color: Color(0x33000000),
+                        color: const Color(0x33000000),
                         blurRadius: 24,
-                        offset: Offset(0, -6)),
+                        offset: Offset(0, wide ? 8 : -6)),
                   ],
                 ),
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 6 + bottom),

@@ -13,6 +13,11 @@ import '../services/widget_service.dart';
 import '../utils/haptics.dart';
 
 class AppState extends ChangeNotifier {
+  /// [sunClock] re-checks day/night every minute; tests turn it off so no
+  /// periodic timer outlives them.
+  AppState({this.sunClock = true});
+  final bool sunClock;
+
   final _weather = WeatherService();
   final _location = LocationService();
   final _alertsService = AlertsService();
@@ -30,7 +35,6 @@ class AppState extends ChangeNotifier {
   bool imperial = true;
   bool hapticsEnabled = true;
   bool notificationsEnabled = true;
-  ThemeMode themeMode = ThemeMode.system;
 
   Set<String> _seenAlertIds = {};
 
@@ -39,7 +43,6 @@ class AppState extends ChangeNotifier {
     imperial = _prefs.getBool('imperial') ?? true;
     hapticsEnabled = _prefs.getBool('haptics') ?? true;
     notificationsEnabled = _prefs.getBool('notifications') ?? true;
-    themeMode = ThemeMode.values[_prefs.getInt('theme') ?? 0];
     _seenAlertIds = (_prefs.getStringList('seenAlerts') ?? []).toSet();
 
     if (notificationsEnabled) {
@@ -80,6 +83,10 @@ class AppState extends ChangeNotifier {
     // NOTE: do NOT call useMyLocation() here — init() runs before runApp(),
     // so there is no Activity yet for the permission dialog. The home screen
     // triggers it after the first frame via ensureLocation().
+
+    // First frame already uses the right theme for the cached place.
+    _syncDaytime();
+    if (sunClock) _startSunClock();
   }
 
   /// Called by the home screen after the first frame. If there is no place
@@ -322,17 +329,55 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void cycleTheme() {
-    themeMode = ThemeMode.values[(themeMode.index + 1) % ThemeMode.values.length];
-    _prefs.setInt('theme', themeMode.index);
-    notifyListeners();
+  // ---- day / night theme ---------------------------------------------------
+
+  bool _daytime = _deviceDaytime();
+  Timer? _sunClock;
+
+  /// Light theme between sunrise and sunset at the place on screen, dark at
+  /// night. Before any forecast is loaded, falls back to the device clock.
+  bool get isDaytime => _daytime;
+
+  ThemeMode get themeMode => _daytime ? ThemeMode.light : ThemeMode.dark;
+
+  static bool _deviceDaytime() {
+    final h = DateTime.now().hour;
+    return h >= 6 && h < 20;
   }
 
-  String get themeLabel => switch (themeMode) {
-        ThemeMode.system => 'System',
-        ThemeMode.light => 'Light',
-        ThemeMode.dark => 'Dark',
-      };
+  bool _computeDaytime() {
+    final d = data;
+    if (d == null) return _deviceDaytime();
+    return d.isDaylightNow(fetchedAt: updatedAt);
+  }
+
+  /// Updates [isDaytime] without notifying (callers notify right after).
+  void _syncDaytime() => _daytime = _computeDaytime();
+
+  /// Re-checks the sun every minute so the theme flips at sunrise/sunset
+  /// while the app stays open.
+  void _startSunClock() {
+    _sunClock?.cancel();
+    _sunClock =
+        Timer.periodic(const Duration(minutes: 1), (_) => recheckDaytime());
+  }
+
+  /// Re-evaluates day/night now; notifies only if it flipped.
+  void recheckDaytime() {
+    if (_computeDaytime() != _daytime) notifyListeners();
+  }
+
+  @override
+  void notifyListeners() {
+    _syncDaytime();
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _sunClock?.cancel();
+    super.dispose();
+  }
 
   String _msg(Object e) {
     final s = e.toString();
