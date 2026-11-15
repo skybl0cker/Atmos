@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="WidgetConfigTheme" parent="WidgetConfigTheme.Base">
+        <item name="android:navigationBarColor">@color/widget_config_bg</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

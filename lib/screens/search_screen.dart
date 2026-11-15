@@ -5,13 +5,17 @@ import 'package:provider/provider.dart';
 
 import '../models/weather.dart';
 import '../state/app_state.dart';
+import '../widgets/art_icon.dart';
 import '../widgets/scene.dart';
 import '../widgets/scene_page.dart';
 
 const _accent = Color(0xFF6C63FF);
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  /// Load saved places' current conditions when opened (off in widget
+  /// tests, which must not start network calls).
+  final bool refreshOnOpen;
+  const SearchScreen({super.key, this.refreshOnOpen = true});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -23,6 +27,16 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Place> _results = [];
   bool _busy = false;
   String? _err;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.refreshOnOpen) return;
+    // Current conditions for the saved places (one small request).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().refreshBriefs();
+    });
+  }
 
   @override
   void dispose() {
@@ -135,66 +149,114 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _savedList(AppState s) {
     final pal = SheetPalette.of(context);
-    return ListView(
+    // Saved places can be dragged into a new order (the order is also the
+    // swipe order on the home screen) and swiped left to remove.
+    return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(0, 14, 0, 24),
-      children: [
-        SheetRow(
-          icon: Icons.my_location_rounded,
-          iconColor: const Color(0xFF3F8CFF),
-          title: 'Use my location',
-          subtitle: 'Weather for wherever you are',
-          onTap: () {
-            s.useMyLocation();
-            Navigator.pop(context);
-          },
-        ),
-        const SheetLabel('Saved places'),
-        for (final p in s.saved)
-          Dismissible(
-            key: ValueKey(p.key),
-            direction: DismissDirection.endToStart,
-            background: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF5A5F),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 22),
-              child: const Icon(
-                Icons.delete_outline_rounded,
-                color: Colors.white,
+      buildDefaultDragHandles: false,
+      onReorderItem: s.reorderSaved,
+      // Lift the row as-is, without the default elevated white slab.
+      proxyDecorator: (child, _, _) =>
+          Material(color: Colors.transparent, child: child),
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SheetRow(
+            icon: Icons.my_location_rounded,
+            iconColor: const Color(0xFF3F8CFF),
+            title: 'Use my location',
+            subtitle: 'Weather for wherever you are',
+            onTap: () {
+              s.useMyLocation();
+              Navigator.pop(context);
+            },
+          ),
+          const SheetLabel('Saved places'),
+          if (s.saved.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 6, 28, 0),
+              child: Text(
+                'Open a city and tap the star to keep it here. Swipe left on '
+                'a saved place to remove it, or drag to reorder.',
+                style: TextStyle(color: pal.soft, fontSize: 13, height: 1.4),
               ),
             ),
-            onDismissed: (_) => s.removePlace(p),
-            child: SheetRow(
-              icon: Icons.star_rounded,
-              iconColor: const Color(0xFFFFB524),
-              title: p.name,
-              subtitle: p.subtitle,
-              highlighted: p.key == s.selected?.key,
-              trailing: p.key == s.selected?.key
-                  ? const Text(
-                      'Showing',
-                      style: TextStyle(
-                        color: _accent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+        ],
+      ),
+      itemCount: s.saved.length,
+      itemBuilder: (context, i) {
+        final p = s.saved[i];
+        final brief = s.briefs[p.key];
+        final showing = p.key == s.selected?.key;
+        return Dismissible(
+          key: ValueKey(p.key),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF5A5F),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 22),
+            child: const Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.white,
+            ),
+          ),
+          onDismissed: (_) => s.removePlace(p),
+          child: SheetRow(
+            icon: Icons.star_rounded,
+            iconColor: const Color(0xFFFFB524),
+            title: p.name,
+            subtitle: showing && p.subtitle.isNotEmpty
+                ? '${p.subtitle} · showing'
+                : showing
+                ? 'Showing'
+                : p.subtitle,
+            highlighted: showing,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Live conditions, once loaded.
+                if (brief != null) ...[
+                  ArtIcon(
+                    brief.code,
+                    day: brief.isDay,
+                    size: 28,
+                    onDark: pal.dark,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    s.temp(brief.tempC),
+                    style: TextStyle(
+                      color: pal.ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+                if (s.saved.length > 1)
+                  ReorderableDragStartListener(
+                    index: i,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Tooltip(
+                        message: 'Drag to reorder',
+                        child: Icon(
+                          Icons.drag_indicator_rounded,
+                          color: pal.faint,
+                          size: 22,
+                        ),
                       ),
-                    )
-                  : null,
-              onTap: () => _pick(p),
+                    ),
+                  ),
+              ],
             ),
+            onTap: () => _pick(p),
           ),
-        if (s.saved.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(28, 6, 28, 0),
-            child: Text(
-              'Open a city and tap the star to keep it here. Swipe left on a saved place to remove it.',
-              style: TextStyle(color: pal.soft, fontSize: 13, height: 1.4),
-            ),
-          ),
-      ],
+        );
+      },
     );
   }
 }

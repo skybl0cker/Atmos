@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same as values/widget_styles.xml but in Poppins, the app's font. -->
+<resources>
+    <style name="WidgetText">
+        <item name="android:fontFamily">@font/poppins_regular</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:shadowColor">#33000000</item>
+        <item name="android:shadowRadius">4</item>
+        <item name="android:shadowDy">1</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+    <style name="WidgetText.Medium">
+        <item name="android:fontFamily">@font/poppins_medium</item>
+    </style>
+    <style name="WidgetText.Light">
+        <item name="android:fontFamily">@font/poppins_light</item>
+    </style>
+    <style name="WidgetText.Temp">
+        <item name="android:fontFamily">@font/poppins_extralight</item>
+    </style>
+</resources>

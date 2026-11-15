@@ -41,17 +41,42 @@ String weatherSummary(WeatherData d, String Function(double c) fmtTemp) {
     }
   }
 
-  if (c.windKmh >= 40) {
-    parts.add('Windy out there.');
-  } else if (d.daily.length > 1) {
+  // One more sentence, the most useful of: wind, how today compares with
+  // yesterday (what to wear *now* — preferred through mid-afternoon), or
+  // what tomorrow brings.
+  String? tomorrow;
+  if (d.daily.length > 1) {
     final diff = d.daily[1].maxC - d.daily[0].maxC;
     if (diff <= -4) {
-      parts.add('Cooler tomorrow, high of ${fmtTemp(d.daily[1].maxC)}.');
+      tomorrow = 'Cooler tomorrow, high of ${fmtTemp(d.daily[1].maxC)}.';
     } else if (diff >= 4) {
-      parts.add('Warmer tomorrow, high of ${fmtTemp(d.daily[1].maxC)}.');
+      tomorrow = 'Warmer tomorrow, high of ${fmtTemp(d.daily[1].maxC)}.';
     }
   }
+  final yesterday = yesterdayNote(d);
+  final earlyInDay = c.time.hour < 15;
+
+  if (c.windKmh >= 40) {
+    parts.add('Windy out there.');
+  } else if (earlyInDay && yesterday != null) {
+    parts.add(yesterday);
+  } else if (tomorrow != null) {
+    parts.add(tomorrow);
+  } else if (yesterday != null) {
+    parts.add(yesterday);
+  }
   return parts.join(' ');
+}
+
+/// "Warmer than yesterday." — from today's high vs yesterday's. Null when
+/// the days are within 3 °C (about 5 °F) or yesterday is unknown.
+String? yesterdayNote(WeatherData d) {
+  final diff = d.vsYesterdayC;
+  if (diff == null || diff.abs() < 3) return null;
+  final much = diff.abs() >= 7 ? 'Much ' : '';
+  final word = diff > 0 ? 'warmer' : 'cooler';
+  final text = '$much$word than yesterday.';
+  return text[0].toUpperCase() + text.substring(1);
 }
 
 /// Dew point (°C) from temperature and relative humidity (Magnus formula).

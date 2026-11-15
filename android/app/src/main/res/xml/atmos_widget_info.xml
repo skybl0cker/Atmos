@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Resizable from 2x1 up. minWidth / minHeight are the default size on
+     Android 11 and older (3x2); Android 12+ uses targetCell*. The layout is
+     picked by size in AtmosWidgetProvider. The style picker opens when the
+     widget is added on Android 11 and older; on 12+ the widget is added with
+     the last-used style and restyled from its long-press "widget settings". -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="180dp"
     android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:resizeMode="horizontal|vertical"
     android:targetCellWidth="3"
     android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
-    android:initialLayout="@layout/atmos_widget"
+    android:initialLayout="@layout/atmos_widget_wide"
+    android:previewLayout="@layout/atmos_widget_wide"
     android:description="@string/widget_desc"
-    android:previewLayout="@layout/atmos_widget"
+    android:configure="com.skybl0cker.atmos.AtmosWidgetConfigureActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional"
     android:widgetCategory="home_screen" />

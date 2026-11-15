@@ -140,32 +140,78 @@ class _LightDailyListState extends State<LightDailyList> {
             child: _open == i
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-                    child: Row(
+                    child: Column(
                       children: [
-                        _fact(
-                          pal,
-                          Icons.wb_twilight_rounded,
-                          'Sunrise',
-                          DateFormat.jm().format(days[i].sunrise),
+                        Row(
+                          children: [
+                            _fact(
+                              pal,
+                              Icons.wb_twilight_rounded,
+                              'Sunrise',
+                              DateFormat.jm().format(days[i].sunrise),
+                            ),
+                            _fact(
+                              pal,
+                              Icons.nights_stay_outlined,
+                              'Sunset',
+                              DateFormat.jm().format(days[i].sunset),
+                            ),
+                            _fact(
+                              pal,
+                              Icons.wb_sunny_outlined,
+                              'UV',
+                              days[i].uv.round().toString(),
+                            ),
+                            _fact(
+                              pal,
+                              Icons.water_drop_outlined,
+                              'Rain',
+                              '${days[i].precipProb}%',
+                            ),
+                          ],
                         ),
-                        _fact(
-                          pal,
-                          Icons.nights_stay_outlined,
-                          'Sunset',
-                          DateFormat.jm().format(days[i].sunset),
-                        ),
-                        _fact(
-                          pal,
-                          Icons.wb_sunny_outlined,
-                          'UV',
-                          days[i].uv.round().toString(),
-                        ),
-                        _fact(
-                          pal,
-                          Icons.water_drop_outlined,
-                          'Rain',
-                          '${days[i].precipProb}%',
-                        ),
+                        // Second row only when the forecast carries the
+                        // extra daily fields (older cached data doesn't).
+                        if (days[i].windMaxKmh != null) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              // Snow days show snowfall instead of rain.
+                              (days[i].snowCm ?? 0) >= 0.1
+                                  ? _fact(
+                                      pal,
+                                      Icons.ac_unit_rounded,
+                                      'Snowfall',
+                                      s.snow(days[i].snowCm!),
+                                    )
+                                  : _fact(
+                                      pal,
+                                      Icons.umbrella_outlined,
+                                      'Rainfall',
+                                      s.precip(days[i].precipMm ?? 0),
+                                    ),
+                              _fact(
+                                pal,
+                                Icons.air_rounded,
+                                'Wind',
+                                s.wind(days[i].windMaxKmh!),
+                              ),
+                              _fact(
+                                pal,
+                                Icons.storm_outlined,
+                                'Gusts',
+                                s.wind(days[i].gustMaxKmh ?? 0),
+                              ),
+                              _fact(
+                                pal,
+                                Icons.hourglass_bottom_rounded,
+                                'Daylight',
+                                '${days[i].daylight.inHours}h '
+                                    '${days[i].daylight.inMinutes % 60}m',
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   )
@@ -189,13 +235,17 @@ class _LightDailyListState extends State<LightDailyList> {
           children: [
             Icon(icon, size: 16, color: pal.soft),
             const SizedBox(height: 4),
-            Text(
-              value,
-              maxLines: 1,
-              style: TextStyle(
-                color: pal.ink,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+            // Values like "0.25 in" shrink to fit narrow cards.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: TextStyle(
+                  color: pal.ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             Text(label, style: TextStyle(color: pal.soft, fontSize: 10)),

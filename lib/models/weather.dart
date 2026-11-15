@@ -79,6 +79,12 @@ class CurrentWeather {
   final int code;
   final bool isDay;
 
+  /// Peak gust (km/h); 0 when the feed (or an old cache) doesn't have it.
+  final double gustKmh;
+
+  /// Horizontal visibility in metres; null when not in the feed.
+  final double? visibilityM;
+
   const CurrentWeather({
     required this.time,
     required this.tempC,
@@ -90,6 +96,8 @@ class CurrentWeather {
     required this.precipMm,
     required this.code,
     required this.isDay,
+    this.gustKmh = 0,
+    this.visibilityM,
   });
 }
 
@@ -100,12 +108,36 @@ class HourlyPoint {
   final double precipMm;
   final int code;
 
+  // Detail fields for the 48-hour screen. Null when the feed (or a forecast
+  // cached by an older version) doesn't carry them.
+  final double? feelsC;
+  final int? humidity;
+  final double? windKmh;
+  final int? windDir;
+  final double? gustKmh;
+  final double? uv;
+
+  /// Sea-level pressure (hPa), for the pressure trend.
+  final double? pressure;
+
+  /// Convective available potential energy (J/kg): the fuel for
+  /// thunderstorms. Above ~1000 with rain around, storms are possible.
+  final double? cape;
+
   const HourlyPoint({
     required this.time,
     required this.tempC,
     required this.precipProb,
     required this.precipMm,
     required this.code,
+    this.feelsC,
+    this.humidity,
+    this.windKmh,
+    this.windDir,
+    this.gustKmh,
+    this.uv,
+    this.pressure,
+    this.cape,
   });
 }
 
@@ -134,6 +166,14 @@ class DailyPoint {
   final double uv;
   final int precipProb;
 
+  // Null when the feed (or an older cached forecast) doesn't carry them.
+  final double? precipMm;
+  final double? windMaxKmh;
+  final double? gustMaxKmh;
+
+  /// Snowfall total (cm).
+  final double? snowCm;
+
   const DailyPoint({
     required this.date,
     required this.code,
@@ -143,7 +183,13 @@ class DailyPoint {
     required this.sunset,
     required this.uv,
     required this.precipProb,
+    this.precipMm,
+    this.windMaxKmh,
+    this.gustMaxKmh,
+    this.snowCm,
   });
+
+  Duration get daylight => sunset.difference(sunrise);
 }
 
 class AirQuality {
@@ -180,7 +226,13 @@ class WeatherData {
   final CurrentWeather current;
   final List<HourlyPoint> hourly;
   final List<MinutelyPoint> minutely;
+
+  /// Today first. (Yesterday, when the feed includes it, is [yesterday].)
   final List<DailyPoint> daily;
+
+  /// Yesterday's summary, for "warmer / cooler than yesterday". Null when
+  /// the feed (or an older cached forecast) doesn't include a past day.
+  final DailyPoint? yesterday;
   final AirQuality? air;
 
   /// Steering-level wind (850 hPa, roughly cloud level) for the current hour.
@@ -193,6 +245,7 @@ class WeatherData {
     required this.hourly,
     required this.minutely,
     required this.daily,
+    this.yesterday,
     this.air,
     this.steeringWindKmh = 0,
     this.steeringWindDir = 0,
@@ -203,10 +256,27 @@ class WeatherData {
     hourly: hourly,
     minutely: minutely,
     daily: daily,
+    yesterday: yesterday,
     air: a,
     steeringWindKmh: steeringWindKmh,
     steeringWindDir: steeringWindDir,
   );
+
+  /// Today's high minus yesterday's, in °C (positive = warmer today), or
+  /// null when either day is missing.
+  double? get vsYesterdayC {
+    final y = yesterday;
+    if (y == null || daily.isEmpty) return null;
+    return daily.first.maxC - y.maxC;
+  }
+
+  /// True within [window] of today's sunrise or sunset — golden hour.
+  bool isGoldenHour({Duration window = const Duration(minutes: 45)}) {
+    if (daily.isEmpty) return false;
+    final t = current.time;
+    bool near(DateTime sun) => t.difference(sun).abs() <= window;
+    return near(daily.first.sunrise) || near(daily.first.sunset);
+  }
 
   /// Whether [t] (place-local) is between that day's sunrise and sunset.
   bool isDaylight(DateTime t) =>
@@ -276,6 +346,8 @@ class WeatherData {
       precipMm: currentPrecipMm,
       code: currentCode,
       isDay: i(c['is_day']) == 1,
+      gustKmh: n(c['wind_gusts_10m']),
+      visibilityM: (c['visibility'] as num?)?.toDouble(),
     );
 
     final hTimes = (h['time'] as List).cast<String>();
@@ -296,9 +368,19 @@ class WeatherData {
       current.time.hour,
     );
 
+    // Optional per-hour detail series (absent in forecasts cached by older
+    // versions): null-safe lookup by index.
+    double? opt(String key, int k) {
+      final l = h[key] as List?;
+      if (l == null || k >= l.length) return null;
+      return (l[k] as num?)?.toDouble();
+    }
+
+    // Up to 48 hours from the current hour. The home row shows the first
+    // 24; the hourly screen shows them all.
     final hourly = <HourlyPoint>[];
     int? firstKept;
-    for (var k = 0; k < hTimes.length && hourly.length < 24; k++) {
+    for (var k = 0; k < hTimes.length && hourly.length < 48; k++) {
       final t = DateTime.parse(hTimes[k]);
       if (t.isBefore(startOfHour)) continue;
       firstKept ??= k;
@@ -310,6 +392,14 @@ class WeatherData {
           precipProb: i(hProb[k]),
           precipMm: mm,
           code: synthesizeCode(i(hCode[k]), mm),
+          feelsC: opt('apparent_temperature', k),
+          humidity: opt('relative_humidity_2m', k)?.round(),
+          windKmh: opt('wind_speed_10m', k),
+          windDir: opt('wind_direction_10m', k)?.round(),
+          gustKmh: opt('wind_gusts_10m', k),
+          uv: opt('uv_index', k),
+          pressure: opt('pressure_msl', k),
+          cape: opt('cape', k),
         ),
       );
     }
@@ -339,7 +429,13 @@ class WeatherData {
     }
 
     final dTimes = (d['time'] as List).cast<String>();
-    final daily = <DailyPoint>[
+    double? dOpt(String key, int k) {
+      final l = d[key] as List?;
+      if (l == null || k >= l.length) return null;
+      return (l[k] as num?)?.toDouble();
+    }
+
+    final allDays = <DailyPoint>[
       for (var k = 0; k < dTimes.length; k++)
         DailyPoint(
           date: DateTime.parse(dTimes[k]),
@@ -350,8 +446,23 @@ class WeatherData {
           sunset: DateTime.parse((d['sunset'] as List)[k] as String),
           uv: n((d['uv_index_max'] as List)[k]),
           precipProb: i((d['precipitation_probability_max'] as List)[k]),
+          precipMm: dOpt('precipitation_sum', k),
+          windMaxKmh: dOpt('wind_speed_10m_max', k),
+          gustMaxKmh: dOpt('wind_gusts_10m_max', k),
+          snowCm: dOpt('snowfall_sum', k),
         ),
     ];
+    // The feed may include past days (past_days=1). The rest of the app
+    // treats daily[0] as *today*, so split anything earlier off: the most
+    // recent past day is kept as `yesterday`, the list starts at today.
+    final today = DateTime(
+      current.time.year,
+      current.time.month,
+      current.time.day,
+    );
+    final past = allDays.where((p) => p.date.isBefore(today)).toList();
+    final daily = allDays.where((p) => !p.date.isBefore(today)).toList();
+    final yesterday = past.isEmpty ? null : past.last;
 
     final k0 = firstKept ?? 0;
     // Layer-mean steering wind (850/700/500 hPa, pressure-weighted): a far
@@ -368,6 +479,7 @@ class WeatherData {
       hourly: hourly,
       minutely: minutely,
       daily: daily,
+      yesterday: yesterday,
       steeringWindKmh: steer.$1,
       steeringWindDir: steer.$2,
     );

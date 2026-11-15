@@ -1,1 +1,3 @@
 .keystore/
+/build/
+/.dart_tool/

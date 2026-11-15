@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../utils/layout.dart';
+import '../widgets/insight_cards.dart';
 import '../widgets/light_daily_list.dart';
 import '../widgets/scene.dart';
 
@@ -91,7 +92,15 @@ class ForecastScreen extends StatelessWidget {
                           padding: EdgeInsets.all(40),
                           child: Center(child: CircularProgressIndicator()),
                         )
-                      : const LightDailyList(maxDays: 14),
+                      : Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(2, 0, 2, 14),
+                              child: WeekHighlightsCard(s: s, d: s.data!),
+                            ),
+                            const LightDailyList(maxDays: 14),
+                          ],
+                        ),
                 ),
               ],
             ),

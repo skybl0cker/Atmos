@@ -18,11 +18,15 @@ String sceneAsset(WeatherData? d) {
 }
 
 /// Sky tint washed over the top of the illustration so white type reads
-/// cleanly: a fresh blue by day, violet at night, slate in the rain.
-Color sceneTint(String asset) {
-  if (asset.endsWith('bg_night.webp')) return const Color(0xFF4637C9);
+/// cleanly: a fresh blue by day, violet at night, slate in the rain. Around
+/// sunrise and sunset ([golden]) clear skies warm up: rose while the sun is
+/// up, a magenta dusk just after it sets.
+Color sceneTint(String asset, {bool golden = false}) {
   if (asset.endsWith('bg_rain.webp')) return const Color(0xFF55657E);
-  return const Color(0xFF5C93F2);
+  if (asset.endsWith('bg_night.webp')) {
+    return golden ? const Color(0xFF8B3F93) : const Color(0xFF4637C9);
+  }
+  return golden ? const Color(0xFFD9667A) : const Color(0xFF5C93F2);
 }
 
 /// "It's Sunny" style phrase for the vertical label.
@@ -61,8 +65,13 @@ class Scene extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asset = sceneAsset(data);
-    final tint = sceneTint(asset);
+    // Before any forecast loads, match the night scene to the (clock-based)
+    // dark theme instead of always showing daytime.
+    final asset =
+        data == null && Theme.of(context).brightness == Brightness.dark
+        ? 'assets/backgrounds/bg_night.webp'
+        : sceneAsset(data);
+    final tint = sceneTint(asset, golden: data?.isGoldenHour() ?? false);
     final h = MediaQuery.sizeOf(context).height;
     return Stack(
       fit: StackFit.expand,

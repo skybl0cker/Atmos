@@ -3,10 +3,10 @@
     "short_name": "Atmos",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Atmos weather for Knoxville and beyond.",
-    "orientation": "portrait-primary",
+    "background_color": "#5C93F2",
+    "theme_color": "#5C93F2",
+    "description": "Atmos — beautiful, local weather with radar and alerts.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

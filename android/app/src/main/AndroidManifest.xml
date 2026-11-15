@@ -34,6 +34,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Home-screen widget style picker (see res/xml/atmos_widget_info.xml). -->
+        <activity
+            android:name=".AtmosWidgetConfigureActivity"
+            android:exported="true"
+            android:label="@string/widget_config_title"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:theme="@style/WidgetConfigTheme">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
         <receiver android:name=".AtmosWidgetProvider"
             android:exported="false">
             <intent-filter>

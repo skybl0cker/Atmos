@@ -1,5 +1,6 @@
 package com.skybl0cker.atmos
 
+import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -11,13 +12,19 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
             .setMethodCallHandler { call, result ->
-                if (call.method == "updateWidget") {
-                    @Suppress("UNCHECKED_CAST")
-                    val args = call.arguments as? Map<String, String> ?: emptyMap()
-                    AtmosWidgetProvider.pushUpdate(this, args)
-                    result.success(null)
-                } else {
-                    result.notImplemented()
+                when (call.method) {
+                    // The forecast itself is saved by the Dart side
+                    // (shared_preferences "widget_payload"); this redraws.
+                    "updateWidget" -> {
+                        AtmosWidgetProvider.updateAll(this)
+                        result.success(null)
+                    }
+                    "openWidgetStyles" -> {
+                        startActivity(Intent(this, AtmosWidgetConfigureActivity::class.java))
+                        result.success(null)
+                    }
+                    "widgetCount" -> result.success(AtmosWidgetProvider.allIds(this).size)
+                    else -> result.notImplemented()
                 }
             }
     }

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget text. Poppins (the app's font) is used from API 26 in
+     values-v26/widget_styles.xml; older phones get the closest system font. -->
+<resources>
+    <style name="WidgetText">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:shadowColor">#33000000</item>
+        <item name="android:shadowRadius">4</item>
+        <item name="android:shadowDy">1</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+    <style name="WidgetText.Medium">
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="WidgetText.Light">
+        <item name="android:fontFamily">sans-serif-light</item>
+    </style>
+    <style name="WidgetText.Temp">
+        <item name="android:fontFamily">sans-serif-thin</item>
+    </style>
+
+    <!-- Style picker screen. -->
+    <style name="WidgetConfigTheme.Base" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/widget_config_bg</item>
+        <item name="android:statusBarColor">@color/widget_config_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#1F1A33</item>
+        <item name="android:colorAccent">#6C63FF</item>
+    </style>
+    <!-- values-v27 adds a light navigation bar. -->
+    <style name="WidgetConfigTheme" parent="WidgetConfigTheme.Base" />
+
+    <color name="widget_config_bg">#F4F2FB</color>
+    <color name="widget_tint_default">#5C93F2</color>
+</resources>

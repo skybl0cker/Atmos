@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/weather.dart';
 import '../screens/search_screen.dart';
+import '../services/widget_service.dart';
 import '../state/app_state.dart';
 
 /// Sidebar restyled for the illustrated UI: a scenic header banner,
@@ -133,6 +135,29 @@ class AppDrawer extends StatelessWidget {
               value: s.notificationsEnabled,
               onChanged: (_) => s.toggleNotifications(),
             ),
+            // Morning summary relies on the Android background worker, so
+            // it's only offered there; it needs notifications on.
+            if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+              _switch(
+                context,
+                icon: Icons.wb_sunny_outlined,
+                label: 'Morning summary (7 AM)',
+                value: s.morningSummary && s.notificationsEnabled,
+                onChanged: s.notificationsEnabled
+                    ? (_) => s.toggleMorningSummary()
+                    : null,
+              ),
+            // Native style picker for the home-screen widget(s).
+            if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+              _tile(
+                context,
+                icon: Icons.widgets_outlined,
+                label: 'Home-screen widget style',
+                onTap: () {
+                  Navigator.pop(context);
+                  openWidgetStyles();
+                },
+              ),
             // Theme is automatic: light by day, dark at night (sun times
             // for the place on screen). Shown, not toggled.
             Padding(
@@ -195,6 +220,16 @@ class AppDrawer extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: p.subtitle.isEmpty ? null : Text(p.subtitle),
+        // Current temperature there, once loaded.
+        trailing: s.briefs[p.key] == null
+            ? null
+            : Text(
+                s.temp(s.briefs[p.key]!.tempC),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
         onLongPress: () => _confirmRemove(context, s, p),
         onTap: () {
           Navigator.pop(context);
@@ -209,7 +244,7 @@ class AppDrawer extends StatelessWidget {
     required IconData icon,
     required String label,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    required ValueChanged<bool>? onChanged,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),

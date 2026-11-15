@@ -7,7 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/alert.dart';
 import '../models/weather.dart';
 import '../services/alerts_service.dart';
+import '../services/climate_service.dart';
 import '../services/location_service.dart';
+import '../utils/forecast_changes.dart';
 import '../services/nearby_threats.dart';
 import '../services/notification_service.dart';
 import '../services/seen_alerts.dart';
@@ -46,6 +48,7 @@ class AppState extends ChangeNotifier {
     imperial = _prefs.getBool('imperial') ?? true;
     hapticsEnabled = _prefs.getBool('haptics') ?? true;
     notificationsEnabled = _prefs.getBool('notifications') ?? true;
+    morningSummary = _prefs.getBool('morningSummary') ?? false;
     _seenAlertIds = (_prefs.getStringList('seenAlerts') ?? []).toSet();
 
     if (notificationsEnabled) {
@@ -137,6 +140,22 @@ class AppState extends ChangeNotifier {
   String precip(double mm) => imperial
       ? '${(mm / 25.4).toStringAsFixed(2)} in'
       : '${mm.toStringAsFixed(1)} mm';
+  String snow(double cm) => imperial
+      ? '${(cm / 2.54).toStringAsFixed(cm / 2.54 < 1 ? 1 : 0)} in'
+      : '${cm.toStringAsFixed(cm < 10 ? 1 : 0)} cm';
+
+  /// Visibility, capped at "10+ mi" / "16+ km" like most observations.
+  String distance(double metres) {
+    if (imperial) {
+      final mi = metres / 1609.34;
+      return mi >= 10 ? '10+ mi' : '${mi.toStringAsFixed(mi < 3 ? 1 : 0)} mi';
+    }
+    final km = metres / 1000;
+    return km >= 16 ? '16+ km' : '${km.toStringAsFixed(km < 3 ? 1 : 0)} km';
+  }
+
+  /// A temperature *difference* in the user's unit (no offset applied).
+  double tvDelta(double dc) => imperial ? dc * 9 / 5 : dc;
 
   // ---- place selection ----------------------------------------------------
 
@@ -148,6 +167,8 @@ class AppState extends ChangeNotifier {
     error = null;
     alerts = [];
     nearby = NearbyThreats.none;
+    normal = null;
+    changes = const [];
     _prefs.setString('last', jsonEncode(p.toJson()));
     notifyListeners();
     unawaited(refresh());
@@ -171,12 +192,14 @@ class AppState extends ChangeNotifier {
     final p = selected;
     if (p == null) return;
     final id = ++_req;
+    _lastAttempt = DateTime.now();
     loading = true;
     error = null;
     notifyListeners();
     // Nearby hurricanes / quakes load alongside, but never hold up (or fail)
     // the weather.
     unawaited(refreshNearby());
+    unawaited(refreshNormal());
     try {
       final results = await Future.wait([
         _weather.fetchRaw(p),
@@ -186,6 +209,15 @@ class AppState extends ChangeNotifier {
       final raw = results[0] as RawWeather;
       final d = raw.data;
       final a = results[1] as List<WeatherAlert>;
+      // "Since you last looked": compare with the forecast we had, if it's
+      // from a previous look (≥ 2 h old) rather than a quick re-refresh.
+      final prev = _cache[p.key], prevAt = _updatedAt[p.key];
+      if (prev != null &&
+          prevAt != null &&
+          DateTime.now().difference(prevAt) >= sinceLastLook) {
+        final c = forecastChanges(prev, d);
+        if (c.isNotEmpty) changes = c;
+      }
       _cache[p.key] = d;
       data = d;
       alerts = a;
@@ -250,6 +282,42 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  /// Drag-to-reorder in the Places list. The order is also the swipe order
+  /// on the home screen. [newIndex] is where the item ends up (what
+  /// ReorderableListView's `onReorderItem` reports).
+  void reorderSaved(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= saved.length) return;
+    newIndex = newIndex.clamp(0, saved.length - 1);
+    if (newIndex == oldIndex) return;
+    saved.insert(newIndex, saved.removeAt(oldIndex));
+    _persistSaved();
+    notifyListeners();
+  }
+
+  // ---- saved places at a glance ---------------------------------------------
+
+  /// Current temperature / conditions for saved places (and the selected
+  /// one), keyed by [Place.key]. Filled by [refreshBriefs].
+  Map<String, PlaceBrief> briefs = {};
+  DateTime? _briefsAt;
+
+  /// Loads conditions for every saved place in a single request. Skips the
+  /// network when the last answer is under 10 minutes old unless [force].
+  Future<void> refreshBriefs({bool force = false}) async {
+    if (saved.isEmpty) return;
+    final at = _briefsAt;
+    final fresh =
+        at != null &&
+        DateTime.now().difference(at) < const Duration(minutes: 10) &&
+        saved.every((p) => briefs.containsKey(p.key));
+    if (fresh && !force) return;
+    final b = await _weather.briefs(List.of(saved));
+    if (b.isEmpty) return;
+    briefs = {...briefs, ...b};
+    _briefsAt = DateTime.now();
+    notifyListeners();
+  }
+
   // ---- settings -----------------------------------------------------------
 
   void toggleUnits() {
@@ -261,6 +329,56 @@ class AppState extends ChangeNotifier {
     if (d != null && p != null) {
       unawaited(updateAtmosWidget(d, p.name, imperial));
     }
+    notifyListeners();
+  }
+
+  // ---- forecast changes -----------------------------------------------------
+
+  /// How old the previous forecast must be for differences to count as
+  /// "since you last looked".
+  static const sinceLastLook = Duration(hours: 2);
+
+  /// Notable revisions since the forecast was last seen (e.g. tomorrow's
+  /// high up 6°). Shown once; cleared by [dismissChanges].
+  List<ForecastChange> changes = const [];
+
+  void dismissChanges() {
+    changes = const [];
+    notifyListeners();
+  }
+
+  // ---- normal for the date --------------------------------------------------
+
+  /// Typical high / low for today's date at the place on screen.
+  DayNormal? normal;
+
+  /// Loads the normal for the place's current date, from a per-place,
+  /// per-day cache when possible (it only changes once a day).
+  Future<void> refreshNormal() async {
+    final p = selected, d = data;
+    if (p == null) return;
+    final date = d?.current.time ?? DateTime.now();
+    final key = 'normal:${p.key}:${date.year}-${date.month}-${date.day}';
+    try {
+      final cached = _prefs.getString(key);
+      if (cached != null) {
+        normal = DayNormal.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+        notifyListeners();
+        return;
+      }
+    } catch (_) {}
+    final n = await ClimateService.normalFor(p, date);
+    if (n == null || selected?.key != p.key) return;
+    normal = n;
+    try {
+      // Keep only the latest normal per place.
+      for (final k in _prefs.getKeys().where(
+        (k) => k.startsWith('normal:${p.key}:'),
+      )) {
+        await _prefs.remove(k);
+      }
+      await _prefs.setString(key, jsonEncode(n.toJson()));
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -362,6 +480,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Daily 7 AM forecast notification (Android background worker). Off by
+  /// default; needs notifications on.
+  bool morningSummary = false;
+
+  void toggleMorningSummary() {
+    morningSummary = !morningSummary;
+    _prefs.setBool('morningSummary', morningSummary);
+    if (morningSummary) unawaited(_notifications.requestPermission());
+    notifyListeners();
+  }
+
   void toggleNotifications() {
     notificationsEnabled = !notificationsEnabled;
     _prefs.setBool('notifications', notificationsEnabled);
@@ -398,10 +527,29 @@ class AppState extends ChangeNotifier {
   /// while the app stays open.
   void _startSunClock() {
     _sunClock?.cancel();
-    _sunClock = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => recheckDaytime(),
-    );
+    _sunClock = Timer.periodic(const Duration(minutes: 1), (_) {
+      recheckDaytime();
+      refreshIfStale();
+    });
+  }
+
+  /// How old the forecast may get while the app sits open (a tablet on a
+  /// stand, a browser tab) before it refreshes itself.
+  static const autoRefreshAfter = Duration(minutes: 15);
+  DateTime? _lastAttempt;
+
+  /// Refreshes when the forecast on screen is older than
+  /// [autoRefreshAfter] — and it has been that long since the last try, so
+  /// an offline device retries every 15 minutes, not every tick.
+  /// Returns whether a refresh was started.
+  bool refreshIfStale({DateTime? now}) {
+    if (selected == null || loading) return false;
+    final t = now ?? DateTime.now();
+    bool old(DateTime? at) =>
+        at == null || t.difference(at) >= autoRefreshAfter;
+    if (!old(updatedAt) || !old(_lastAttempt)) return false;
+    unawaited(refresh());
+    return true;
   }
 
   /// Re-evaluates day/night now; notifies only if it flipped.

@@ -31,8 +31,52 @@
 
   <title>Atmos</title>
   <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#5C93F2">
+
+  <!-- Splash shown while the app loads; removed on Flutter's first frame. -->
+  <style>
+    html, body { height: 100%; margin: 0; background: #5C93F2; }
+    #splash {
+      position: fixed; inset: 0; z-index: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 22px;
+      background: linear-gradient(180deg, #5C93F2 0%, #9FB4F2 48%, #E7C3DD 100%);
+      color: #fff;
+      font: 200 44px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      letter-spacing: 6px;
+      transition: opacity .45s ease;
+    }
+    #splash.hide { opacity: 0; pointer-events: none; }
+    #splash .sun {
+      width: 76px; height: 76px; border-radius: 50%;
+      background: radial-gradient(circle at 38% 34%, #FFE9A8, #FFB524);
+      box-shadow: 0 0 0 14px rgba(255, 216, 102, .25),
+                  0 0 0 30px rgba(255, 216, 102, .12);
+      animation: breathe 2.4s ease-in-out infinite;
+    }
+    #splash .name { text-indent: 6px; text-shadow: 0 2px 16px rgba(0,0,0,.18); }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #splash .sun { animation: none; }
+    }
+  </style>
 </head>
 <body>
+  <div id="splash" role="status" aria-label="Loading Atmos">
+    <div class="sun"></div>
+    <div class="name">ATMOS</div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var s = document.getElementById('splash');
+      if (!s) return;
+      s.classList.add('hide');
+      setTimeout(function () { s.remove(); }, 500);
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

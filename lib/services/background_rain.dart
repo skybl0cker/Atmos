@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/weather.dart';
+import '../utils/share_text.dart';
 import 'weather_service.dart';
 import 'widget_service.dart';
 
@@ -24,6 +25,47 @@ const _channel = AndroidNotificationChannel(
   description: 'Notifies when rain is about to start',
   importance: Importance.high,
 );
+
+const _morningChannel = AndroidNotificationChannel(
+  'morning_summary',
+  'Morning summary',
+  description: "The day's forecast each morning",
+  importance: Importance.defaultImportance,
+);
+
+Future<void> _maybeMorningSummary(
+  SharedPreferences prefs,
+  FlutterLocalNotificationsPlugin plugin,
+  AndroidFlutterLocalNotificationsPlugin? android,
+  Place place,
+  Map<String, WeatherData> fetched,
+) async {
+  if (!(prefs.getBool('morningSummary') ?? false)) return;
+  final lastMs = prefs.getInt('morningSummaryMs');
+  final last = lastMs == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(lastMs);
+  if (!morningSummaryDue(DateTime.now(), last)) return;
+  final d = fetched[place.key];
+  if (d == null) return; // fetch failed; the next run (30 min) retries
+  final imperial = prefs.getBool('imperial') ?? true;
+  String fmt(double c) => '${(imperial ? c * 9 / 5 + 32 : c).round()}°';
+  final m = morningSummary(place.name, d, fmt);
+  await android?.createNotificationChannel(_morningChannel);
+  await plugin.show(
+    'morning'.hashCode,
+    m.title,
+    m.body,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        'morning_summary',
+        'Morning summary',
+        styleInformation: BigTextStyleInformation(m.body),
+      ),
+    ),
+  );
+  await prefs.setInt('morningSummaryMs', DateTime.now().millisecondsSinceEpoch);
+}
 
 Future<void> runRainCheck() async {
   final prefs = await SharedPreferences.getInstance();
@@ -56,24 +98,27 @@ Future<void> runRainCheck() async {
     await updateAtmosWidget(wd, first.name, imp);
   } catch (_) {}
 
-  // One notification per 6 hours so a passing shower doesn't spam.
-  final lastNotify = prefs.getInt('lastRainNotifyMs') ?? 0;
-  if (DateTime.now().millisecondsSinceEpoch - lastNotify <
-      const Duration(hours: 6).inMilliseconds) {
-    return;
-  }
-
   final plugin = FlutterLocalNotificationsPlugin();
   await plugin.initialize(
     const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     ),
   );
-  await plugin
+  final android = plugin
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.createNotificationChannel(_channel);
+      >();
+  await android?.createNotificationChannel(_channel);
+
+  // Morning summary (opt-in): once a day, first run after 7 AM.
+  await _maybeMorningSummary(prefs, plugin, android, places.first, fetched);
+
+  // One notification per 6 hours so a passing shower doesn't spam.
+  final lastNotify = prefs.getInt('lastRainNotifyMs') ?? 0;
+  if (DateTime.now().millisecondsSinceEpoch - lastNotify <
+      const Duration(hours: 6).inMilliseconds) {
+    return;
+  }
 
   for (final p in places.take(3)) {
     WeatherData d;

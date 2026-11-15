@@ -9,6 +9,9 @@ import '../models/weather.dart';
 import '../state/app_state.dart';
 import '../utils/aqi.dart';
 import '../utils/astro.dart';
+import '../utils/hour_entries.dart';
+import '../utils/insights.dart';
+import '../utils/share_text.dart';
 import '../utils/layout.dart';
 import '../utils/summary.dart';
 import '../utils/tips.dart';
@@ -16,6 +19,7 @@ import '../utils/weather_codes.dart';
 import '../widgets/alert_banner.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/art_icon.dart';
+import '../widgets/insight_cards.dart';
 import '../widgets/light_daily_list.dart';
 import '../widgets/moon_icon.dart';
 import '../widgets/nowcast_strip.dart';
@@ -23,6 +27,7 @@ import '../widgets/pressable.dart';
 import '../widgets/scene.dart';
 import 'alerts_screen.dart';
 import 'forecast_screen.dart';
+import 'hourly_screen.dart';
 import 'radar_screen.dart';
 import 'radio_screen.dart';
 import 'search_screen.dart';
@@ -52,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
     _expand.dispose();
     _sheetCtrl.dispose();
     _panelScroll.dispose();
@@ -80,8 +86,51 @@ class _HomeScreenState extends State<HomeScreen> {
     final width = MediaQuery.sizeOf(context).width;
     // Phones keep the pull-up sheet; unfolded foldables, tablets and
     // desktop browsers get the side-by-side layout.
-    if (width >= wideLayoutMinWidth) return _buildWide(context, s);
-    return _buildPhone(context, s);
+    return width >= wideLayoutMinWidth
+        ? _buildWide(context, s)
+        : _buildPhone(context, s);
+  }
+
+  // ---- keyboard shortcuts (desktop / web; harmless on phones) -------------
+  //
+  // R refresh · / search · H 48-hour view · ← → previous / next saved place.
+  //
+  // A page-wide listener rather than Shortcuts/Focus: on the web, clicking
+  // non-focusable parts of the page drops keyboard focus above any widget
+  // shortcut handler, so those stopped working after the first click.
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  bool _onKey(KeyEvent e) {
+    if (e is! KeyDownEvent || !mounted) return false;
+    // Only while home is the visible screen (not under Places, Radar…).
+    if (ModalRoute.of(context)?.isCurrent != true) return false;
+    // Never steal keys from a text field.
+    final focused = FocusManager.instance.primaryFocus?.context?.widget;
+    if (focused is EditableText) return false;
+    final k = HardwareKeyboard.instance;
+    if (k.isControlPressed || k.isMetaPressed || k.isAltPressed) return false;
+
+    final s = context.read<AppState>();
+    final key = e.logicalKey;
+    if (key == LogicalKeyboardKey.keyR) {
+      s.refresh();
+    } else if (key == LogicalKeyboardKey.slash || e.character == '/') {
+      _push(const SearchScreen());
+    } else if (key == LogicalKeyboardKey.keyH) {
+      if (s.data != null) _push(const HourlyScreen());
+    } else if (key == LogicalKeyboardKey.arrowRight) {
+      s.stepPlace(1);
+    } else if (key == LogicalKeyboardKey.arrowLeft) {
+      s.stepPlace(-1);
+    } else {
+      return false;
+    }
+    return true;
   }
 
   /// Big screens: the scene and hero fill the left, "Weather Today" sits in
@@ -100,6 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         drawer: const AppDrawer(),
+        // Load saved places' current temperatures when the menu opens.
+        onDrawerChanged: (open) {
+          if (open) s.refreshBriefs();
+        },
         body: Stack(
           children: [
             Positioned.fill(
@@ -160,6 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onForecast: () => _push(const ForecastScreen()),
                         onAlerts: () => _push(const AlertsScreen()),
                         onRadio: () => _push(const RadioScreen()),
+                        onHourly: () => _push(const HourlyScreen()),
                       ),
                     ),
                   ),
@@ -178,13 +232,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final d = s.data;
     final mq = MediaQuery.of(context);
     // Resting sheet: handle, title, the hourly row and the quick actions.
-    final restPx = 300.0 + mq.padding.bottom;
+    final restPx = 304.0 + mq.padding.bottom;
     final restFrac = (restPx / mq.size.height).clamp(0.25, 0.62).toDouble();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         drawer: const AppDrawer(),
+        // Load saved places' current temperatures when the menu opens.
+        onDrawerChanged: (open) {
+          if (open) s.refreshBriefs();
+        },
         body: Stack(
           children: [
             // The painting runs a little under the sheet so the hills meet
@@ -255,6 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onForecast: () => _push(const ForecastScreen()),
                   onAlerts: () => _push(const AlertsScreen()),
                   onRadio: () => _push(const RadioScreen()),
+                  onHourly: () => _push(const HourlyScreen()),
                   onHandleTap: () {
                     final open = _expand.value > 0.5;
                     _sheetCtrl.animateTo(
@@ -457,6 +516,7 @@ class _Hero extends StatelessWidget {
                           padding: EdgeInsets.only(right: 34 * k),
                           child: Text(
                             '${v.round()}',
+                            semanticsLabel: '${target.round()} degrees',
                             style: TextStyle(
                               fontSize: 148 * k,
                               fontWeight: FontWeight.w200,
@@ -540,7 +600,7 @@ class _Hero extends StatelessWidget {
 class _Sheet extends StatelessWidget {
   final ScrollController scroll;
   final AppState s;
-  final VoidCallback onRadar, onForecast, onAlerts, onRadio;
+  final VoidCallback onRadar, onForecast, onAlerts, onRadio, onHourly;
   final VoidCallback? onHandleTap;
 
   /// Docked = a floating side panel on big screens (no drag handle, all
@@ -557,6 +617,7 @@ class _Sheet extends StatelessWidget {
     required this.onForecast,
     required this.onAlerts,
     required this.onRadio,
+    required this.onHourly,
     this.onHandleTap,
     this.docked = false,
     this.showDaily = true,
@@ -628,18 +689,97 @@ class _Sheet extends StatelessWidget {
                     ),
                   ),
                 ),
-              Center(
-                child: Text(
-                  'Weather Today',
-                  style: TextStyle(
-                    color: pal.ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+              // Centered title, with a quiet "48h" link to the hourly screen.
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    'Weather Today',
+                    style: TextStyle(
+                      color: pal.ink,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
+                  // Copy a text forecast to paste into a message.
+                  if (d != null && s.selected != null)
+                    Positioned(
+                      left: 14,
+                      child: Pressable(
+                        semanticLabel: 'Copy forecast to share',
+                        onTap: () async {
+                          await Clipboard.setData(
+                            ClipboardData(
+                              text: shareText(s.selected!.name, d, s.temp),
+                            ),
+                          );
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Forecast copied — paste it anywhere',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                        },
+                        child: Tooltip(
+                          message: 'Copy forecast',
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: pal.card,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.ios_share_rounded,
+                              size: 16,
+                              color: pal.soft,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (d != null)
+                    Positioned(
+                      right: 14,
+                      child: Pressable(
+                        semanticLabel: 'Open the 48-hour forecast',
+                        onTap: onHourly,
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+                          decoration: BoxDecoration(
+                            color: pal.card,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '48h',
+                                style: TextStyle(
+                                  color: pal.soft,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 16,
+                                color: pal.soft,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
-              if (d != null) _HourlyRow(s: s, d: d, pal: pal),
+              if (d != null) _HourlyRow(s: s, d: d, pal: pal, onOpen: onHourly),
               const SizedBox(height: 14),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -681,6 +821,11 @@ class _Sheet extends StatelessWidget {
                     padding: EdgeInsets.fromLTRB(16, 18, 16, 0),
                     child: AlertBanner(),
                   ),
+                if (s.changes.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: ChangesCard(s: s, d: d),
+                  ),
                 _Tips(d: d, pal: pal),
                 // Rain on the way in the next two hours: show the nowcast.
                 if (d.minutely.take(8).any((m) => m.precipMm > 0))
@@ -692,9 +837,26 @@ class _Sheet extends StatelessWidget {
                       title: 'Rain, next 2 hours',
                     ),
                   ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: BestTimeCard(s: s, d: d),
+                ),
                 title('Details'),
                 _Details(s: s, d: d, pal: pal),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: SunCard(d: d),
+                ),
+                if (s.normal != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: NormalCard(s: s, d: d),
+                  ),
                 if (showDaily) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: WeekHighlightsCard(s: s, d: d),
+                  ),
                   title('Next 10 Days'),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 14),
@@ -723,60 +885,138 @@ class _HourlyRow extends StatelessWidget {
   final AppState s;
   final WeatherData d;
   final SheetPalette pal;
-  const _HourlyRow({required this.s, required this.d, required this.pal});
+
+  /// Opens the full 48-hour screen.
+  final VoidCallback onOpen;
+  const _HourlyRow({
+    required this.s,
+    required this.d,
+    required this.pal,
+    required this.onOpen,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final hours = d.hourly;
+    // The next 24 hours, with sunrise / sunset markers slotted in.
+    final entries = hourEntries(d, count: 24);
     // Four hours per view on phones; on wider panels the cards stop
     // growing past 104 dp and more hours show instead.
     return LayoutBuilder(
       builder: (context, box) {
         final w = math.min((box.maxWidth - 24) / 4, 104.0);
         return SizedBox(
-          height: 122,
+          height: 126,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: hours.length,
-            itemBuilder: (_, i) {
-              final h = hours[i];
-              final now = i == 0;
-              return SizedBox(
+            itemCount: entries.length,
+            itemBuilder: (_, i) => GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                tapHaptic(context);
+                onOpen();
+              },
+              child: SizedBox(
                 width: w,
-                child: Column(
-                  children: [
-                    ArtIcon(
-                      h.code,
-                      day: now ? d.current.isDay : d.isDaylight(h.time),
-                      size: 42,
-                      onDark: pal.dark,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      now ? 'NOW' : DateFormat('hh:mm a').format(h.time),
-                      style: TextStyle(
-                        color: now ? _accent : pal.soft,
-                        fontSize: 11,
-                        fontWeight: now ? FontWeight.w600 : FontWeight.w400,
-                        letterSpacing: now ? 1 : 0,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    RingTemp(
-                      '${s.tv(h.tempC).round()}',
-                      fontSize: 30,
-                      weight: FontWeight.w300,
-                      color: pal.ink,
-                    ),
-                  ],
-                ),
-              );
-            },
+                child: switch (entries[i]) {
+                  HourSlot e => _hour(e),
+                  SunSlot e => _sun(e),
+                },
+              ),
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _hour(HourSlot e) {
+    final h = e.hour;
+    final now = e.index == 0;
+    return Column(
+      children: [
+        ArtIcon(
+          h.code,
+          day: now ? d.current.isDay : d.isDaylight(h.time),
+          size: 42,
+          onDark: pal.dark,
+        ),
+        // Chance of rain, only when it's worth knowing; the line keeps its
+        // height either way so every column lines up.
+        SizedBox(
+          height: 15,
+          child: Text(
+            h.precipProb >= 20 ? '${h.precipProb}%' : '',
+            style: const TextStyle(
+              color: Color(0xFF3D9BFF),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
+          ),
+        ),
+        Text(
+          now ? 'NOW' : DateFormat('hh:mm a').format(h.time),
+          style: TextStyle(
+            color: now ? _accent : pal.soft,
+            fontSize: 11,
+            fontWeight: now ? FontWeight.w600 : FontWeight.w400,
+            letterSpacing: now ? 1 : 0,
+          ),
+        ),
+        const SizedBox(height: 2),
+        RingTemp(
+          '${s.tv(h.tempC).round()}',
+          fontSize: 30,
+          weight: FontWeight.w300,
+          color: pal.ink,
+        ),
+      ],
+    );
+  }
+
+  Widget _sun(SunSlot e) {
+    const amber = Color(0xFFFFA726);
+    return Column(
+      children: [
+        SizedBox(
+          width: 42,
+          height: 42,
+          child: Icon(Icons.wb_twilight_rounded, color: amber, size: 30),
+        ),
+        SizedBox(
+          height: 15,
+          child: Icon(
+            e.isSunrise
+                ? Icons.keyboard_arrow_up_rounded
+                : Icons.keyboard_arrow_down_rounded,
+            color: amber,
+            size: 15,
+          ),
+        ),
+        Text(
+          e.isSunrise ? 'Sunrise' : 'Sunset',
+          style: TextStyle(color: pal.soft, fontSize: 11),
+        ),
+        const SizedBox(height: 2),
+        SizedBox(
+          height: 33,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                DateFormat('h:mm').format(e.time),
+                style: TextStyle(
+                  color: pal.ink,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -910,7 +1150,8 @@ class _Details extends StatelessWidget {
       ),
       (
         disc(Icons.air_rounded, const Color(0xFF22B07D)),
-        'Wind',
+        // Call out gusts when they're notably stronger than the wind.
+        c.gustKmh >= c.windKmh + 15 ? 'Gusts ${s.wind(c.gustKmh)}' : 'Wind',
         '${s.wind(c.windKmh)} ${compass(c.windDir)}',
       ),
       (
@@ -919,12 +1160,39 @@ class _Details extends StatelessWidget {
         today == null ? '—' : '${today.uv.round()}',
       ),
       (disc(sunIcon, const Color(0xFFB36BD1)), sunLabel, sunValue),
-      (disc(Icons.speed_rounded, _accent), 'Pressure', pressure),
+      (
+        disc(switch (pressureTrend(d)) {
+          PressureTrend.rising => Icons.trending_up_rounded,
+          PressureTrend.falling => Icons.trending_down_rounded,
+          _ => Icons.speed_rounded,
+        }, _accent),
+        // A falling barometer is the classic sign of unsettled weather.
+        switch (pressureTrend(d)) {
+          PressureTrend.rising => 'Pressure · rising',
+          PressureTrend.falling => 'Pressure · falling',
+          PressureTrend.steady => 'Pressure · steady',
+          null => 'Pressure',
+        },
+        pressure,
+      ),
       if (today != null)
         (
           disc(Icons.umbrella_outlined, const Color(0xFF3D9BFF)),
-          'Rain today',
+          // How much, not just how likely, when any is expected.
+          rainTotalMm(d) >= 0.25
+              ? 'Rain · ${s.precip(rainTotalMm(d))} in 24h'
+              : 'Rain today',
           '${today.precipProb}%',
+        ),
+      if (c.visibilityM != null)
+        (
+          disc(Icons.visibility_outlined, const Color(0xFF8A86A0)),
+          c.visibilityM! < 1000
+              ? 'Visibility · fog'
+              : c.visibilityM! < 5000
+              ? 'Visibility · hazy'
+              : 'Visibility',
+          s.distance(c.visibilityM!),
         ),
       if (air != null)
         (
@@ -938,8 +1206,12 @@ class _Details extends StatelessWidget {
           size: 28,
           shadow: pal.dark ? const Color(0xFF0E0B22) : const Color(0xFF3A3360),
         ),
-        // The icon shows waxing vs waning; the label stays short.
-        moon.shortName,
+        // The icon shows waxing vs waning; the label counts down to full.
+        moon.daysToFull == 0
+            ? 'Full moon'
+            : moon.daysToFull == 1
+            ? 'Full moon tomorrow'
+            : 'Full in ${moon.daysToFull} days',
         '${(moon.illumination * 100).round()}% lit',
       ),
     ];
@@ -1052,6 +1324,8 @@ class _DailyPanel extends StatelessWidget {
                   ),
                 ),
                 const LightDailyList(maxDays: 14),
+                const SizedBox(height: 12),
+                WeekHighlightsCard(s: s, d: s.data!),
               ],
             ),
     );

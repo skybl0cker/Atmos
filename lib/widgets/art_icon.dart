@@ -24,10 +24,15 @@ class ArtIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(painter: _ArtPainter(code, day, onDark)),
+    // Painted icons are invisible to screen readers unless labelled.
+    return Semantics(
+      label: describe(code),
+      image: true,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(painter: _ArtPainter(code, day, onDark)),
+      ),
     );
   }
 }
